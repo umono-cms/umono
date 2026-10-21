@@ -1,5 +1,23 @@
 # Umono
-**Umono** is the vendor lock-in killer CMS.
+**Umono** is a self-hosted CMS that keeps your content apart from the theme that styles it.
+
+![The Umono admin panel with a blog post written in Compono, next to the same post published with the Folio theme](.github/readme/side-by-side-post.png)
+
+## What it is
+- One Go binary and a SQLite file.
+- Runs on Linux and macOS, x86_64 and arm64.
+- The [CLI](https://github.com/umono-cms/cli) installs Umono, sets up a site and upgrades it later.
+- Pages are written in [Compono](https://github.com/umono-cms/compono), a Markdown-based language with components. The admin panel previews the page as you type.
+- Themes are only CSS, fonts and images. A theme styles a published page structure, called a contract, and can't change what a page says. The official themes are [Octavo](https://github.com/umono-cms/theme-octavo) for simple sites and [Folio](https://github.com/umono-cms/theme-folio) for blogs.
+- Public pages set no cookies and make no third-party requests.
+
+![Editing a post's title in the admin panel: the preview updates while typing, the page is saved and opened with the Folio theme](.github/readme/demo.gif)
+
+## Status
+Umono is not finished, and development is ongoing. Compono is better suited to technical users today, and there is no plugin system yet.
+
+## How it's built
+The code is written by AI agents, Claude Code and opencode. Development is document-first: decisions and specs are written before the code, every change is reviewed against its spec, and the behavior is pinned by tests.
 
 ## Install
 ```sh
@@ -16,6 +34,11 @@ umono up
 ```
 
 👉 http://127.0.0.1:8999/admin
+
+[Your first site](https://docs.umono.dev/getting-started/your-first-site/) walks you from an empty directory to a site with a theme.
+
+## Feedback
+Tried Umono? Tell us where you got stuck or what you'd need in [GitHub Discussions](https://github.com/umono-cms/umono/discussions).
 
 ## Development
 ### TailwindCSS Installation
