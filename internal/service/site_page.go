@@ -183,9 +183,16 @@ func (s *SitePageService) MustPreview(ctx context.Context, source string) (strin
 
 // PreviewBound converts source for the editor's preview with an unsaved
 // layout binding. The preview shows the structure: no theme stylesheet is
-// applied to it.
-func (s *SitePageService) PreviewBound(ctx context.Context, source string, contractID *uint, layoutID *string) (string, []compono.Diagnostic, error) {
+// applied to it. The preview marks the links to the address of the saved
+// page with the pageID. The pageID 0, of a new page or of the 404 page, has
+// no address, so that no link is marked.
+func (s *SitePageService) PreviewBound(ctx context.Context, pageID uint, source string, contractID *uint, layoutID *string) (string, []compono.Diagnostic, error) {
 	r := s.pageRender(models.SitePage{ContractID: contractID, LayoutID: layoutID})
+	if pageID != 0 {
+		if page, err := s.GetByID(pageID); err == nil {
+			r.Current = currentPage(pageAddress(page.Slug))
+		}
+	}
 	return s.contentCompiler.CompileWithProviderContext(ctx, source, r.Options()...)
 }
 

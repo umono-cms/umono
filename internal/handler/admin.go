@@ -175,7 +175,7 @@ type sitePageEditor struct {
 }
 
 func (h *adminHandler) buildSitePageEditor(ctx context.Context, page models.SitePage, translator any) sitePageEditor {
-	output, diagnostics := sitePagePreviewBound(ctx, h.sitePageService, page.Content, page.ContractID, page.LayoutID)
+	output, diagnostics := sitePagePreviewBound(ctx, h.sitePageService, page.ID, page.Content, page.ContractID, page.LayoutID)
 	editor := sitePageEditor{
 		ID:             page.ID,
 		Name:           page.Name,

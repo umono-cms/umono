@@ -102,7 +102,7 @@ func TestPreviewBound(t *testing.T) {
 
 	ctx := context.Background()
 
-	out, _, err := sps.PreviewBound(ctx, "{{ UMONO_LAYOUT title = \"Hello\" }}\n", &rec.ID, strp("post"))
+	out, _, err := sps.PreviewBound(ctx, 0, "{{ UMONO_LAYOUT title = \"Hello\" }}\n", &rec.ID, strp("post"))
 	if err != nil {
 		t.Fatalf("PreviewBound err = %v, want nil", err)
 	}
@@ -110,7 +110,7 @@ func TestPreviewBound(t *testing.T) {
 		t.Fatalf("strings.Contains(out, %q) = false, want true", "Hello")
 	}
 
-	out, diagnostics, err := sps.PreviewBound(ctx, "{{ UMONO_LAYOUT title = \"Hello\" }}\n", nil, nil)
+	out, diagnostics, err := sps.PreviewBound(ctx, 0, "{{ UMONO_LAYOUT title = \"Hello\" }}\n", nil, nil)
 	if err != nil {
 		t.Fatalf("PreviewBound err = %v, want nil", err)
 	}
