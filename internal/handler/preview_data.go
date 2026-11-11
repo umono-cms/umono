@@ -10,9 +10,10 @@ import (
 )
 
 // sitePagePreviewBound renders source as the preview of the page editor with
-// an unsaved layout binding.
-func sitePagePreviewBound(ctx context.Context, s *service.SitePageService, source string, contractID *uint, layoutID *string) (template.HTML, []view.DiagnosticItem) {
-	output, diagnostics, _ := s.PreviewBound(ctx, source, contractID, layoutID)
+// an unsaved layout binding. The preview marks the links to the address of
+// the saved page with the pageID.
+func sitePagePreviewBound(ctx context.Context, s *service.SitePageService, pageID uint, source string, contractID *uint, layoutID *string) (template.HTML, []view.DiagnosticItem) {
+	output, diagnostics, _ := s.PreviewBound(ctx, pageID, source, contractID, layoutID)
 	return mustPreviewHTML(output), view.EditorDiagnostics(diagnostics, nil)
 }
 

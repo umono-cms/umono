@@ -61,7 +61,7 @@ func (h *SitePageHandler) Create(c *fiber.Ctx) error {
 		saved = created
 	}
 
-	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, sitePage.Content, sitePage.ContractID, sitePage.LayoutID)
+	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, saved.ID, sitePage.Content, sitePage.ContractID, sitePage.LayoutID)
 	editor := view.SitePageEditor(sitePage, output, diagnostics, slugErr, nameErr, c.Locals("I18n"))
 	editor.Layout = layoutField(c.Locals("I18n"), h.themeService, saved, c.FormValue("layout"))
 	editor.Layout.Error, editor.Layout.Skeleton = bindingErrorText(c, errs)
@@ -114,7 +114,7 @@ func (h *SitePageHandler) Update(c *fiber.Ctx) error {
 		saved = updated
 	}
 
-	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, sitePage.Content, sitePage.ContractID, sitePage.LayoutID)
+	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, saved.ID, sitePage.Content, sitePage.ContractID, sitePage.LayoutID)
 	editor := view.SitePageEditor(sitePage, output, diagnostics, slugErr, nameErr, c.Locals("I18n"))
 	editor.Layout = layoutField(c.Locals("I18n"), h.themeService, saved, c.FormValue("layout"))
 	editor.Layout.Error, editor.Layout.Skeleton = bindingErrorText(c, errs)

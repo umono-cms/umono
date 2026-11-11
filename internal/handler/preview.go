@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/umono-cms/umono/internal/service"
 )
@@ -36,7 +38,12 @@ func (h *previewHandler) RenderSitePagePreview(c *fiber.Ctx) error {
 		return err
 	}
 
-	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, req.Content, contractID, layoutID)
+	pageID := uint64(0)
+	if n, err := strconv.ParseUint(c.FormValue("id"), 10, 0); err == nil {
+		pageID = n
+	}
+
+	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, uint(pageID), req.Content, contractID, layoutID)
 
 	return Render(c, "partials/editor-preview", fiber.Map{
 		"Output":      output,
@@ -74,7 +81,7 @@ func (h *previewHandler) NotFoundPagePreview(c *fiber.Ctx) error {
 		return err
 	}
 
-	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, content, contractID, layoutID)
+	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, 0, content, contractID, layoutID)
 
 	return Render(c, "partials/editor-preview", fiber.Map{
 		"Output":      output,

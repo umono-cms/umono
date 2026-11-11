@@ -56,7 +56,7 @@ func (h *settingsHandler) Render404Page(c *fiber.Ctx) error {
 		previewContent = defaultContent
 	}
 
-	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, previewContent, page.ContractID, page.LayoutID)
+	output, diagnostics := sitePagePreviewBound(c.UserContext(), h.sitePageService, 0, previewContent, page.ContractID, page.LayoutID)
 	return Render(c, partial, fiber.Map{
 		"SettingsUl":     h.settingsUl(c, path.Base(c.Path())),
 		"DefaultTitle":   defaultTitle,
