@@ -32,26 +32,34 @@ type PageRender struct {
 	// Attributes is the active theme's attributes table, nil when there is no
 	// active theme or it has no attributes.toml.
 	Attributes *themecore.AttributeTable
+	// Current resolves the current of a LINK whose current is __auto. It is
+	// nil when the render has no page address, as on the 404 page; __auto is
+	// then empty.
+	Current compono.CurrentResolverFunc
 }
 
 // Options returns the Compono options of the render: UMONO_LAYOUT as an
-// isolated global whose sub components are the contract's components, and
-// the injection hook of the attributes table. A page without a binding has
-// none.
+// isolated global whose sub components are the contract's components, the
+// injection hook of the attributes table and the resolver of the current of
+// the links whose current is __auto. A page without a binding has no layout
+// and no injection hook, but still the resolver when it has one.
 func (r PageRender) Options() []compono.ConvertOption {
-	if r.LayoutID == "" {
-		return nil
+	var options []compono.ConvertOption
+	if r.LayoutID != "" {
+		sub := []compono.ConvertOption{compono.WithIsolatedScope()}
+		for _, c := range r.Components {
+			sub = append(sub, compono.WithGlobalComponent(c.Name, []byte(c.Source)))
+		}
+		options = append(options, compono.WithGlobalComponent(layoutGlobal, []byte(r.Layout), sub...))
+		if r.Attributes != nil {
+			table, layout := *r.Attributes, r.LayoutID
+			options = append(options, compono.WithAttributeHook(func(builtin string, chain []compono.Frame) map[string]string {
+				return table.Lookup(layout, builtin, chain)
+			}))
+		}
 	}
-	sub := []compono.ConvertOption{compono.WithIsolatedScope()}
-	for _, c := range r.Components {
-		sub = append(sub, compono.WithGlobalComponent(c.Name, []byte(c.Source)))
-	}
-	options := []compono.ConvertOption{compono.WithGlobalComponent(layoutGlobal, []byte(r.Layout), sub...)}
-	if r.Attributes != nil {
-		table, layout := *r.Attributes, r.LayoutID
-		options = append(options, compono.WithAttributeHook(func(builtin string, chain []compono.Frame) map[string]string {
-			return table.Lookup(layout, builtin, chain)
-		}))
+	if r.Current != nil {
+		options = append(options, compono.WithCurrentResolver(r.Current))
 	}
 	return options
 }
