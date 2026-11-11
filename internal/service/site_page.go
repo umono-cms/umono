@@ -75,6 +75,7 @@ func (s *SitePageService) GetRenderedBySlug(ctx context.Context, slug string) (R
 	}
 
 	r := s.pageRender(sitePage)
+	r.Current = currentPage(pageAddress(sitePage.Slug))
 	root, imageURLs, _, err := s.contentCompiler.RenderRoot(ctx, sitePage.Content, r)
 	if err != nil {
 		return RenderedPage{}, err
