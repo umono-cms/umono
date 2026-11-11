@@ -75,7 +75,7 @@ func (s *SitePageService) GetRenderedBySlug(ctx context.Context, slug string) (R
 	}
 
 	r := s.pageRender(sitePage)
-	r.Current = currentPage(pageAddress(sitePage.Slug))
+	r.Current = CurrentResolver(sitePage.Slug)
 	root, imageURLs, _, err := s.contentCompiler.RenderRoot(ctx, sitePage.Content, r)
 	if err != nil {
 		return RenderedPage{}, err
@@ -190,7 +190,7 @@ func (s *SitePageService) PreviewBound(ctx context.Context, pageID uint, source 
 	r := s.pageRender(models.SitePage{ContractID: contractID, LayoutID: layoutID})
 	if pageID != 0 {
 		if page, err := s.GetByID(pageID); err == nil {
-			r.Current = currentPage(pageAddress(page.Slug))
+			r.Current = CurrentResolver(page.Slug)
 		}
 	}
 	return s.contentCompiler.CompileWithProviderContext(ctx, source, r.Options()...)

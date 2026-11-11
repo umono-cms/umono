@@ -128,6 +128,8 @@
     "scenarios/contracts/umono/blog/v0.1/post-list-block.golden": "a901061d63c59b8bd12b02af4d2f35bf795523a39a125462f15f712865d75965",
     "scenarios/contracts/umono/blog/v0.1/post-list-link.golden": "417e37f4f01137adea9e0ffcfaa26513fb88ff3b9f05a982013c580835f76cea",
     "scenarios/contracts/umono/page/v0.1/page-block.golden": "825b141fa4e2af285559b29fbc4b10bcb4f627653161576548bac83d5bdadcd5",
+    "scenarios/contracts/umono/page/v0.1/page-current-auto.golden": "e2501c12b993aa8b679af6c8cdbeeb107967360dc6d2440f89c9557f162792d8",
+    "scenarios/contracts/umono/page/v0.1/page-current-explicit.golden": "e2501c12b993aa8b679af6c8cdbeeb107967360dc6d2440f89c9557f162792d8",
     "scenarios/contracts/umono/page/v0.1/page-link.golden": "56ad339991906a9d2c3cf9ef1d7f5d9d4cafdc965019ed1efe9bc1d6f3f0657d",
     "scenarios/page-shared-component.golden": "84ada6f683b7dedd250b20ee87b50b09c625e3bf834fb1dd333320f74f5e0e33",
     "scenarios/post-address-forms.golden": "00ca97ff6351660b87d394d440688e1816f17654c336eb30e1d635bee14eaec4",

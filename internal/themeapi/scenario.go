@@ -70,7 +70,10 @@ func scenarioLayout(name string, layouts []string) (string, error) {
 // render, service.ContentCompiler.RenderRoot: the page.comp of the archive is
 // bound to the layout of contract.toml that scenarioLayout picks, with the
 // table that themecore compiles from attributes.toml when there is one and
-// the site's globals of globals/NAME.comp. It returns the canonical form of
+// the site's globals of globals/NAME.comp. The file page.slug, when the
+// archive has one, holds the slug of the page the scenario renders, so that
+// its links have the current of that page; without it the scenario has no
+// page address, as the 404 page. It returns the canonical form of
 // <umono-root>. A diagnostic is an error, because the corpus holds only
 // error-free inputs.
 func renderScenario(name string, archive []byte) (string, error) {
@@ -107,6 +110,9 @@ func renderScenario(name string, archive []byte) (string, error) {
 			return "", err
 		}
 		r.Attributes = &table
+	}
+	if b, ok := files["page.slug"]; ok {
+		r.Current = service.CurrentResolver(strings.TrimSpace(string(b)))
 	}
 
 	var globals []models.Component

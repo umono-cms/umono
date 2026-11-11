@@ -13,6 +13,12 @@ func pageAddress(slug string) string {
 	return "/" + slug
 }
 
+// CurrentResolver returns the resolver of __auto for the page with the slug,
+// as a visitor's render and the page editor's preview use it.
+func CurrentResolver(slug string) compono.CurrentResolverFunc {
+	return currentPage(pageAddress(slug))
+}
+
 // currentPage returns the resolver that decides the current of a LINK whose
 // current is __auto against the address of the page that renders it: "page"
 // for the link whose address is the page's address, "" for every other
