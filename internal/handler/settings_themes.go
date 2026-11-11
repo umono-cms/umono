@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/umono-cms/themecore"
 	"github.com/umono-cms/umono/internal/models"
 	"github.com/umono-cms/umono/internal/view"
 )
@@ -53,7 +56,12 @@ func (h *settingsHandler) RenderThemePages(c *fiber.Ctx) error {
 }
 
 // failure joins the translated headline of a failed action and its reason.
+// An error that wraps themecore.ErrOutdated is shown as the out of date
+// message instead of its raw text.
 func failure(c *fiber.Ctx, key string, err error) string {
+	if errors.Is(err, themecore.ErrOutdated) {
+		return translate(c, key) + ": " + translate(c, "settings.themes.outdated")
+	}
 	return translate(c, key) + ": " + err.Error()
 }
 
