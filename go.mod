@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mxschmitt/playwright-go v0.6201.1
-	github.com/umono-cms/compono v0.7.1
+	github.com/umono-cms/compono v0.8.0
 	github.com/umono-cms/crypto v0.1.0
 	github.com/umono-cms/themecore v0.2.0
 	golang.org/x/crypto v0.58.0
