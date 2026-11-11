@@ -224,6 +224,30 @@ func TestThemesActivateFailure(t *testing.T) {
 	}
 }
 
+func TestThemesActivateOutdated(t *testing.T) {
+	app, ts := newThemesTestApp(t, &fakeThemeRegistry{err: fmt.Errorf("contract.toml: layouts.post: 1:1: undefined component TABLE: %w", themecore.ErrOutdated)})
+
+	status, body := htmxPost(t, app, "/admin/settings/themes/activate", url.Values{"path": {"acme/minimal/0.1.0"}})
+	if got, want := status, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	for _, want := range []string{"settings.themes.activate_failed", "settings.themes.outdated"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("body = %q, want to contain %q", body, want)
+		}
+	}
+	for _, unwanted := range []string{"undefined component TABLE", "themecore is older than the contract"} {
+		if strings.Contains(body, unwanted) {
+			t.Fatalf("body = %q, want to not contain %q", body, unwanted)
+		}
+	}
+
+	blog := models.Contract{Org: "example", Name: "blog", Major: 1, Minor: 0}.Group()
+	if _, ok := ts.Loaded(blog); ok {
+		t.Fatalf("ts.Loaded(blog) = true, want false")
+	}
+}
+
 func TestThemesDeactivate(t *testing.T) {
 	app, ts := newThemesTestApp(t, &fakeThemeRegistry{})
 
