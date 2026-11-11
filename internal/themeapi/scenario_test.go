@@ -1,6 +1,11 @@
 package themeapi
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestParseTxtar(t *testing.T) {
 	input := []byte("comment\n-- a.txt --\nA\n-- globals/CARD.comp --\nB\nC\n")
@@ -51,5 +56,35 @@ func TestScenarioLayout(t *testing.T) {
 				t.Errorf("scenarioLayout(%q) = %q, want %q", tt.name, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestCurrentAutoMatchesExplicitCurrent: a menu whose links carry the
+// current __auto renders as the menu that writes its current out, with
+// aria-current on the link of the page alone.
+func TestCurrentAutoMatchesExplicitCurrent(t *testing.T) {
+	const dir = "testdata/dom/scenarios/contracts/umono/page/v0.1"
+
+	render := func(name string) string {
+		t.Helper()
+		archive, err := os.ReadFile(filepath.Join(dir, name+".txtar"))
+		if err != nil {
+			t.Fatalf("os.ReadFile(%s.txtar): %v", name, err)
+		}
+		out, err := renderScenario(name, archive)
+		if err != nil {
+			t.Fatalf("renderScenario(%q): %v", name, err)
+		}
+		return out
+	}
+
+	auto := render("page-current-auto")
+	explicit := render("page-current-explicit")
+
+	if auto != explicit {
+		t.Errorf("the auto and the explicit current render differently:\nauto:\n%s\nexplicit:\n%s", auto, explicit)
+	}
+	if n := strings.Count(explicit, "aria-current"); n != 1 {
+		t.Errorf("the explicit output has %d aria-current, want 1:\n%s", n, explicit)
 	}
 }
