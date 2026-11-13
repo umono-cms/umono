@@ -99,6 +99,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	}
 	componentService.OnRenderInputChange(recomputeDiagnostics)
 	mediaService.OnRenderInputChange(recomputeDiagnostics)
+	siteContextService.OnRenderInputChange(recomputeDiagnostics)
 	// themes/ and themes-pending/ are in the project root, on the same file
 	// system, next to umono.db.
 	themeService := service.NewThemeService("themes", "themes-pending", service.NewContractService(repository.NewContractRepository(db)), repository.NewThemeRepository(db), theme.NewRegistry())

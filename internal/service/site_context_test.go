@@ -384,3 +384,161 @@ func TestSiteContextValuesReachPagesAndGlobals(t *testing.T) {
 		t.Fatalf("CompileWithProviderContext() = %q", output)
 	}
 }
+
+func TestSiteContextServiceDelete(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if _, err := svc.Save("site/count", "1"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if _, err := svc.Save("site/other", "2"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	if err := svc.Delete("site/count"); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+
+	want := map[string]any{"site/other": 2}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	reloaded, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if got := reloaded.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	var count int64
+	if err := db.Model(&models.SiteContext{}).Count(&count).Error; err != nil {
+		t.Fatalf("count site contexts: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("site context count = %d, want 1", count)
+	}
+
+	if err := svc.Delete("site/count"); !errors.Is(err, ErrSiteContextNotFound) {
+		t.Fatalf("Delete() error = %v, want ErrSiteContextNotFound", err)
+	}
+}
+
+func TestSiteContextServiceRename(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if _, err := svc.Save("site/count", "1"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if _, err := svc.Save("site/other", "2"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	if err := svc.Rename("site/count", "site/total"); err != nil {
+		t.Fatalf("Rename() error = %v", err)
+	}
+
+	want := map[string]any{"site/total": 1, "site/other": 2}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	reloaded, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if got := reloaded.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	if err := svc.Rename("site/total", "site/other"); !errors.Is(err, ErrSiteContextKeyAlreadyExists) {
+		t.Fatalf("Rename() error = %v, want ErrSiteContextKeyAlreadyExists", err)
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	if err := svc.Rename("site/missing", "site/new"); !errors.Is(err, ErrSiteContextNotFound) {
+		t.Fatalf("Rename() error = %v, want ErrSiteContextNotFound", err)
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	if err := svc.Rename("site/total", "total"); !errors.Is(err, ErrInvalidSiteContextKey) {
+		t.Fatalf("Rename() error = %v, want ErrInvalidSiteContextKey", err)
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	if err := svc.Rename("site/total", "site/total"); err != nil {
+		t.Fatalf("Rename() error = %v", err)
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+}
+
+func TestSiteContextDeletedOrRenamedKeyIsUnknown(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if _, err := svc.Save("site/count", "1"); err != nil {
+		t.Fatalf("Save() error = %v, want nil", err)
+	}
+	if _, err := svc.Save("site/other", "2"); err != nil {
+		t.Fatalf("Save() error = %v, want nil", err)
+	}
+
+	compiler, err := NewContentCompiler(nil, svc)
+	if err != nil {
+		t.Fatalf("NewContentCompiler() error = %v", err)
+	}
+
+	hasUnknownKey := func(source string) bool {
+		_, diagnostics, err := compiler.CompileWithProviderContext(context.Background(), source)
+		if err != nil {
+			t.Fatalf("CompileWithProviderContext() error = %v", err)
+		}
+		for _, diagnostic := range diagnostics {
+			if diagnostic.Code == compono.CodeUnknownKey {
+				return true
+			}
+		}
+		return false
+	}
+
+	if hasUnknownKey("{{ context(site/count) }}") {
+		t.Fatalf("hasUnknownKey(%q) = true, want false", "{{ context(site/count) }}")
+	}
+
+	if err := svc.Rename("site/count", "site/total"); err != nil {
+		t.Fatalf("Rename() error = %v, want nil", err)
+	}
+	if !hasUnknownKey("{{ context(site/count) }}") {
+		t.Fatalf("hasUnknownKey(%q) = false, want true", "{{ context(site/count) }}")
+	}
+	if hasUnknownKey("{{ context(site/total) }}") {
+		t.Fatalf("hasUnknownKey(%q) = true, want false", "{{ context(site/total) }}")
+	}
+
+	if err := svc.Delete("site/other"); err != nil {
+		t.Fatalf("Delete() error = %v, want nil", err)
+	}
+	if !hasUnknownKey("{{ context(site/other) }}") {
+		t.Fatalf("hasUnknownKey(%q) = false, want true", "{{ context(site/other) }}")
+	}
+}
