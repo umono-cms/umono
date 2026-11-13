@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,7 +151,7 @@ func TestLoadDevAddsTheContractRecordWithoutTheRegistry(t *testing.T) {
 func TestLoadDevThemeAPIOutOfRange(t *testing.T) {
 	svc, _ := newThemeTestService(t, &fakeRegistry{})
 	root := writeDevTheme(t, svc.themesDir, func(b string) string {
-		return strings.Replace(b, "theme-api-version = 1", "theme-api-version = 2", 1)
+		return strings.Replace(b, "theme-api-version = 1", fmt.Sprintf("theme-api-version = %d", themecore.ThemeAPICurrent()+1), 1)
 	})
 	svc.EnableDev(root)
 
@@ -466,7 +467,7 @@ func TestPageRenderFallsBackOnAFatalDevError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v", built, err)
 	}
-	writeFile(t, built, []byte(strings.Replace(string(b), "theme-api-version = 1", "theme-api-version = 2", 1)))
+	writeFile(t, built, []byte(strings.Replace(string(b), "theme-api-version = 1", fmt.Sprintf("theme-api-version = %d", themecore.ThemeAPICurrent()+1), 1)))
 
 	layout := "post"
 	r, err := svc.PageRender(models.SitePage{ContractID: &record.ID, LayoutID: &layout})
@@ -534,7 +535,7 @@ func TestListShowsTheFatalErrorOfTheThemeInDevelopment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v", built, err)
 	}
-	writeFile(t, built, []byte(strings.Replace(string(b), "theme-api-version = 1", "theme-api-version = 2", 1)))
+	writeFile(t, built, []byte(strings.Replace(string(b), "theme-api-version = 1", fmt.Sprintf("theme-api-version = %d", themecore.ThemeAPICurrent()+1), 1)))
 
 	list, err := svc.List()
 	if err != nil {

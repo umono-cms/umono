@@ -95,8 +95,8 @@ github.com/umono-cms/compono v0.8.0 h1:/CPZcY4UZzhSrW3y3yhnyT/OWOdanXlXcFk4t5dKf
 github.com/umono-cms/compono v0.8.0/go.mod h1:xmv1PX8nrUAczVM/LYgGRC1mn9ryeutfA76oJNuaHNI=
 github.com/umono-cms/crypto v0.1.0 h1:xKKlLKxroXVIf4oUecWneaTh1NX3TuO3QKaMwMUt9dY=
 github.com/umono-cms/crypto v0.1.0/go.mod h1:SPx8bAPC9Z2GzcwJTti4vO2yqeziTRzb0S91BGCFn5g=
-github.com/umono-cms/themecore v0.2.0 h1:ORX7FcvUr4TPgTmyQDiuYVFFdksW4lfSCgKPGh4leyg=
-github.com/umono-cms/themecore v0.2.0/go.mod h1:hcSQ8/TK1y1UXph3uFmU8fHk7qmMhPAf/5C93brjmoI=
+github.com/umono-cms/themecore v0.3.0 h1:Futp/n9c1rxyJV1EjFiRXD19xewiH4G4nVREmegwzXM=
+github.com/umono-cms/themecore v0.3.0/go.mod h1:ZI/3OBLosHP+TPnj1fGVLaXaqDJv7A+ikkpmSAPIjdM=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.70.0 h1:LAhMGcWk13QZWm85+eg8ZBNbrq5mnkWFGbHMUJHIdXA=
