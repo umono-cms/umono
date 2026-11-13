@@ -14,6 +14,11 @@ import (
 // the site context key grammar.
 var ErrInvalidSiteContextKey = errors.New("invalid site context key")
 
+// ErrInvalidSiteContextValue is returned when the source of a site context
+// does not parse as a value. The diagnostics that report why it does not
+// parse are returned with it.
+var ErrInvalidSiteContextValue = errors.New("invalid site context value")
+
 // siteContextKeyPattern matches the site context keys. A site context key
 // starts with site/ and its segments follow Compono's context key grammar, so
 // the key can be written in context(...). Umono's own keys are outside site/.
@@ -56,29 +61,32 @@ func NewSiteContextService(repo *repository.SiteContextRepository) (*SiteContext
 }
 
 // Save saves the source of the site context of key and parses it. A source
-// that does not parse removes the key from the values.
-func (s *SiteContextService) Save(key, source string) error {
+// that does not parse is not saved: the row and the value of the key keep
+// the last valid value. The diagnostics that report why the source does not
+// parse are returned with ErrInvalidSiteContextValue. Their ranges are
+// relative to the source.
+func (s *SiteContextService) Save(key, source string) ([]compono.Diagnostic, error) {
 	if !siteContextKeyPattern.MatchString(key) {
-		return ErrInvalidSiteContextKey
+		return nil, ErrInvalidSiteContextKey
+	}
+
+	value, diagnostics := compono.ParseValue([]byte(source))
+	if len(diagnostics) > 0 {
+		return diagnostics, ErrInvalidSiteContextValue
 	}
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
 	if err := s.repo.Save(key, source); err != nil {
-		return err
+		return nil, err
 	}
 
-	value, diagnostics := compono.ParseValue([]byte(source))
 	s.updateValues(func(values map[string]any) {
-		if len(diagnostics) > 0 {
-			delete(values, key)
-			return
-		}
 		values[key] = value
 	})
 
-	return nil
+	return nil, nil
 }
 
 // Values returns the current values of the site contexts. Callers must not

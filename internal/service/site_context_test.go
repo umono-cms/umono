@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/umono-cms/compono"
 	"github.com/umono-cms/umono/internal/models"
 	"github.com/umono-cms/umono/internal/repository"
 	"gorm.io/driver/sqlite"
@@ -68,10 +69,10 @@ func TestSiteContextServiceSaveParsesTheValue(t *testing.T) {
 		t.Fatalf("NewSiteContextService() error = %v", err)
 	}
 
-	if err := svc.Save("site/count", "1"); err != nil {
+	if _, err := svc.Save("site/count", "1"); err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
-	if err := svc.Save("site/count", "2"); err != nil {
+	if _, err := svc.Save("site/count", "2"); err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
 
@@ -131,7 +132,7 @@ func TestSiteContextServiceRejectsAnInvalidKey(t *testing.T) {
 				t.Fatalf("NewSiteContextService() error = %v", err)
 			}
 
-			if err := svc.Save(tc.key, "1"); !errors.Is(err, ErrInvalidSiteContextKey) {
+			if _, err := svc.Save(tc.key, "1"); !errors.Is(err, ErrInvalidSiteContextKey) {
 				t.Fatalf("Save(%q) error = %v, want ErrInvalidSiteContextKey", tc.key, err)
 			}
 
@@ -170,7 +171,7 @@ func TestSiteContextServiceAcceptsAValidKey(t *testing.T) {
 				t.Fatalf("NewSiteContextService() error = %v", err)
 			}
 
-			if err := svc.Save(tc.key, "1"); err != nil {
+			if _, err := svc.Save(tc.key, "1"); err != nil {
 				t.Fatalf("Save(%q) error = %v, want nil", tc.key, err)
 			}
 
@@ -182,6 +183,93 @@ func TestSiteContextServiceAcceptsAValidKey(t *testing.T) {
 				t.Fatalf("Values()[%q] = %#v, want 1", tc.key, got)
 			}
 		})
+	}
+}
+
+func TestSiteContextServiceRejectsAnUnparseableValue(t *testing.T) {
+	cases := []struct {
+		name   string
+		source string
+	}{
+		{name: "unterminated array", source: "[1,"},
+		{name: "component", source: "FOO"},
+		{name: "context expression", source: "context(site/name)"},
+		{name: "parameter in record", source: "{ a: title }"},
+		{name: "empty", source: ""},
+		{name: "multiple values", source: "1 2"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newSiteContextTestDB(t)
+
+			svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+			if err != nil {
+				t.Fatalf("NewSiteContextService() error = %v", err)
+			}
+
+			if _, err := svc.Save("site/count", "1"); err != nil {
+				t.Fatalf("Save() error = %v", err)
+			}
+
+			diags, err := svc.Save("site/count", tc.source)
+			if !errors.Is(err, ErrInvalidSiteContextValue) {
+				t.Fatalf("Save(%q) error = %v, want ErrInvalidSiteContextValue", tc.source, err)
+			}
+			if len(diags) == 0 {
+				t.Fatal("Save() diagnostics are empty, want diagnostics")
+			}
+			_, wantDiags := compono.ParseValue([]byte(tc.source))
+			if !reflect.DeepEqual(diags, wantDiags) {
+				t.Fatalf("Save() diagnostics = %#v, want %#v", diags, wantDiags)
+			}
+
+			wantValues := map[string]any{"site/count": 1}
+			if got := svc.Values(); !reflect.DeepEqual(got, wantValues) {
+				t.Fatalf("Values() = %#v, want %#v", got, wantValues)
+			}
+
+			var row models.SiteContext
+			if err := db.Where("key = ?", "site/count").First(&row).Error; err != nil {
+				t.Fatalf("get site count: %v", err)
+			}
+			if row.Source != "1" {
+				t.Fatalf("Source = %q, want %q", row.Source, "1")
+			}
+
+			reloaded, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+			if err != nil {
+				t.Fatalf("NewSiteContextService() error = %v", err)
+			}
+			if got := reloaded.Values(); !reflect.DeepEqual(got, wantValues) {
+				t.Fatalf("Values() = %#v, want %#v", got, wantValues)
+			}
+		})
+	}
+}
+
+func TestSiteContextServiceDoesNotCreateAnUnparseableValue(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+
+	if _, err := svc.Save("site/count", "[1,"); !errors.Is(err, ErrInvalidSiteContextValue) {
+		t.Fatalf("Save() error = %v, want ErrInvalidSiteContextValue", err)
+	}
+
+	var count int64
+	if err := db.Model(&models.SiteContext{}).Count(&count).Error; err != nil {
+		t.Fatalf("count site contexts: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("site context count = %d, want 0", count)
+	}
+
+	if values := svc.Values(); len(values) != 0 {
+		t.Fatalf("Values() = %#v, want no values", values)
 	}
 }
 
