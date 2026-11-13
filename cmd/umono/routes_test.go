@@ -85,8 +85,8 @@ func loginCookie(t *testing.T, app *fiber.App) string {
 	return ""
 }
 
-// seedContent stores a page, a global and a media in db and returns the
-// value of the :id parameter of each admin route prefix.
+// seedContent stores a page, a global, a media and a site context in db and
+// returns the value of the :id parameter of each admin route prefix.
 func seedContent(t *testing.T, db *gorm.DB) map[string]string {
 	page := models.SitePage{Name: "Home", Slug: "home", Content: "Hello {{ GREETING }}", Enabled: true}
 	if result := db.Create(&page); result.Error != nil {
@@ -108,11 +108,17 @@ func seedContent(t *testing.T, db *gorm.DB) map[string]string {
 		t.Fatalf("create media: %v", result.Error)
 	}
 
+	siteContext := models.SiteContext{Key: "site/count", Source: "42"}
+	if result := db.Create(&siteContext); result.Error != nil {
+		t.Fatalf("create site context: %v", result.Error)
+	}
+
 	return map[string]string{
 		"/admin/site-pages/":       strconv.FormatUint(uint64(page.ID), 10),
 		"/admin/components/":       strconv.FormatUint(uint64(component.ID), 10),
 		"/admin/media/":            media.ID,
 		"/admin/settings/storage/": storage.ID,
+		"/admin/context/":          strconv.FormatUint(uint64(siteContext.ID), 10),
 	}
 }
 
