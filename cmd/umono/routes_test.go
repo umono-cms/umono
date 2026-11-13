@@ -13,6 +13,7 @@ import (
 	umonocrypto "github.com/umono-cms/crypto"
 	"github.com/umono-cms/umono/internal/credentials"
 	"github.com/umono-cms/umono/internal/models"
+	"github.com/umono-cms/umono/internal/theme"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -56,7 +57,7 @@ func newTestApp(t *testing.T) (*fiber.App, *gorm.DB) {
 		t.Fatalf("new secret: %v", err)
 	}
 
-	app, err := newApp(db, secret, "")
+	app, err := newApp(db, secret, "", theme.RegistryURL)
 	if err != nil {
 		t.Fatalf("new app: %v", err)
 	}
