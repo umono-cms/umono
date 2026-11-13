@@ -1,0 +1,21 @@
+<ul id="context-ul" class="space-y-1"{{if and .IsHTMX .IsAlreadyOnContext}} hx-swap-oob="outerHTML"{{end}}>
+  {{ range .ContextUl }}
+    <li>
+      <a
+        href="/admin/context/{{.ID}}"
+        class="flex items-center gap-3 px-3 py-2 rounded-xl {{ if .IsActive }}bg-purple-500/10 border border-purple-500/20 text-purple-300{{ else }}hover:bg-neutral-700/30 transition-colors {{end}}"
+        hx-get="/admin/context/{{.ID}}"
+        hx-target="#context-content"
+        hx-push-url="/admin/context/{{.ID}}"
+      >
+        <span class="w-2 h-2 rounded-full"></span>
+        <span class="text-sm truncate font-mono">{{ .Key }}</span>
+        <span class="hidden [.htmx-request_&]:inline-block h-4 w-4 text-white ml-auto shrink-0">
+          {{ template "partials/spinner" . }}
+        </span>
+      </a>
+    </li>
+  {{ else }}
+    <li class="px-3 py-2 text-sm text-neutral-500">{{ t $.I18n "context.empty" }}</li>
+  {{ end }}
+</ul>
