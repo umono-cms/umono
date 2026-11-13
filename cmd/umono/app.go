@@ -31,6 +31,7 @@ import (
 func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fiber.App, error) {
 	if err := db.AutoMigrate(
 		&models.Component{},
+		&models.SiteContext{},
 		&models.Contract{},
 		&models.SitePage{},
 		&models.PageDiagnostic{},
@@ -62,6 +63,9 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	sitePageRepo := repository.NewSitePageRepository(db)
 	componentRepo := repository.NewComponentRepository(db)
 	componentService := service.NewComponentService(componentRepo)
+	if _, err := service.NewSiteContextService(repository.NewSiteContextRepository(db)); err != nil {
+		return nil, fmt.Errorf("site context err: %w", err)
+	}
 
 	settingsService := service.NewSettingsService()
 	systemService := service.NewSystemService()
