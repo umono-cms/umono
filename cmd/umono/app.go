@@ -146,6 +146,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	mediaHandler := handler.NewMediaHandler(mediaService, storageService, optionService)
 	settingsHandler := handler.NewSettingsHandler(settingsService, optionService, sitePageService, storageService, themeService)
 	systemHandler := handler.NewSystemHandler(systemService, jobService, sitePageService)
+	contextHandler := handler.NewContextHandler(siteContextService)
 	optionHandler := handler.NewOptionHandler(optionService)
 
 	shellHandler, err := handler.NewShellHandler(umono.Shell())
@@ -309,6 +310,21 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	adminProtected.Post("/system/jobs/:id/retry",
 		middleware.OnlyHTMX(),
 		systemHandler.RetryJob,
+	)
+	adminProtected.Get("/context", contextHandler.Index)
+	adminProtected.Get("/context/new", contextHandler.RenderNew)
+	adminProtected.Get("/context/:id", contextHandler.RenderEdit)
+	adminProtected.Post("/context",
+		middleware.OnlyHTMX(),
+		contextHandler.Create,
+	)
+	adminProtected.Put("/context/:id",
+		middleware.OnlyHTMX(),
+		contextHandler.Update,
+	)
+	adminProtected.Delete("/context/:id",
+		middleware.OnlyHTMX(),
+		contextHandler.Delete,
 	)
 	adminProtected.Get("/media", mediaHandler.Index)
 	adminProtected.Get("/media/new", mediaHandler.RenderNew)

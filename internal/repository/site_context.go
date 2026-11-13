@@ -17,6 +17,54 @@ func NewSiteContextRepository(db *gorm.DB) *SiteContextRepository {
 	}
 }
 
+// GetByID returns the site context of id and whether it exists.
+func (r *SiteContextRepository) GetByID(id uint) (models.SiteContext, bool, error) {
+	var row models.SiteContext
+	err := r.db.Model(&models.SiteContext{}).Where("id = ?", id).First(&row).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return models.SiteContext{}, false, nil
+	case err != nil:
+		return models.SiteContext{}, false, err
+	}
+	return row, true, nil
+}
+
+// Create inserts the site context of key and source and returns it.
+func (r *SiteContextRepository) Create(key, source string) (models.SiteContext, error) {
+	row := models.SiteContext{
+		Key:    key,
+		Source: source,
+	}
+	if err := r.db.Create(&row).Error; err != nil {
+		return models.SiteContext{}, err
+	}
+	return row, nil
+}
+
+// UpdateByID sets the key and the source of the site context of id and
+// returns the row that is read back.
+func (r *SiteContextRepository) UpdateByID(id uint, key, source string) (models.SiteContext, error) {
+	result := r.db.Model(&models.SiteContext{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"key":    key,
+			"source": source,
+		})
+	if result.Error != nil {
+		return models.SiteContext{}, result.Error
+	}
+
+	row, ok, err := r.GetByID(id)
+	if err != nil {
+		return models.SiteContext{}, err
+	}
+	if !ok {
+		return models.SiteContext{}, gorm.ErrRecordNotFound
+	}
+	return row, nil
+}
+
 // GetAll returns the site contexts ordered by key.
 func (r *SiteContextRepository) GetAll() ([]models.SiteContext, error) {
 	var all []models.SiteContext

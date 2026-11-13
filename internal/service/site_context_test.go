@@ -543,6 +543,221 @@ func TestSiteContextDeletedOrRenamedKeyIsUnknown(t *testing.T) {
 	}
 }
 
+func TestSiteContextServiceListAndGet(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+
+	if _, err := svc.Save("site/b", "2"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if _, err := svc.Save("site/a", "1"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	rows, err := svc.List()
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("List() rows = %d, want 2", len(rows))
+	}
+	wantKeys := []string{"site/a", "site/b"}
+	for i, row := range rows {
+		if row.Key != wantKeys[i] {
+			t.Fatalf("List()[%d].Key = %q, want %q", i, row.Key, wantKeys[i])
+		}
+	}
+
+	got, err := svc.Get(rows[0].ID)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Key != "site/a" {
+		t.Fatalf("Get().Key = %q, want %q", got.Key, "site/a")
+	}
+	if got.Source != "1" {
+		t.Fatalf("Get().Source = %q, want %q", got.Source, "1")
+	}
+
+	if _, err := svc.Get(999); !errors.Is(err, ErrSiteContextNotFound) {
+		t.Fatalf("Get(999) error = %v, want ErrSiteContextNotFound", err)
+	}
+}
+
+func TestSiteContextServiceCreate(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+
+	calls := 0
+	svc.OnRenderInputChange(func(ctx context.Context) {
+		calls++
+	})
+
+	created, _, err := svc.Create("site/a", "1")
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if created.ID == 0 {
+		t.Fatal("Create().ID = 0, want a saved row")
+	}
+	if created.Key != "site/a" {
+		t.Fatalf("Create().Key = %q, want %q", created.Key, "site/a")
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	if _, _, err := svc.Create("site/a", "2"); !errors.Is(err, ErrSiteContextKeyAlreadyExists) {
+		t.Fatalf("Create() error = %v, want ErrSiteContextKeyAlreadyExists", err)
+	}
+	want := map[string]any{"site/a": 1}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	if _, _, err := svc.Create("bad", "1"); !errors.Is(err, ErrInvalidSiteContextKey) {
+		t.Fatalf("Create() error = %v, want ErrInvalidSiteContextKey", err)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	_, diags, err := svc.Create("site/b", "[1,")
+	if !errors.Is(err, ErrInvalidSiteContextValue) {
+		t.Fatalf("Create() error = %v, want ErrInvalidSiteContextValue", err)
+	}
+	if len(diags) == 0 {
+		t.Fatal("Create() diagnostics are empty, want diagnostics")
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+
+	var count int64
+	if err := db.Model(&models.SiteContext{}).Count(&count).Error; err != nil {
+		t.Fatalf("count site contexts: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("site context count = %d, want 1", count)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+}
+
+func TestSiteContextServiceUpdate(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+
+	a, _, err := svc.Create("site/a", "1")
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if _, _, err := svc.Create("site/b", "2"); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	calls := 0
+	svc.OnRenderInputChange(func(ctx context.Context) {
+		calls++
+	})
+
+	updated, _, err := svc.Update(a.ID, "site/c", "3")
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if updated.ID != a.ID {
+		t.Fatalf("Update().ID = %d, want %d", updated.ID, a.ID)
+	}
+	if updated.Key != "site/c" {
+		t.Fatalf("Update().Key = %q, want %q", updated.Key, "site/c")
+	}
+	want := map[string]any{"site/c": 3, "site/b": 2}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	reloaded, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if got := reloaded.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	if _, _, err := svc.Update(a.ID, "site/b", "4"); !errors.Is(err, ErrSiteContextKeyAlreadyExists) {
+		t.Fatalf("Update() error = %v, want ErrSiteContextKeyAlreadyExists", err)
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	_, diags, err := svc.Update(a.ID, "site/c", "[1,")
+	if !errors.Is(err, ErrInvalidSiteContextValue) {
+		t.Fatalf("Update() error = %v, want ErrInvalidSiteContextValue", err)
+	}
+	if len(diags) == 0 {
+		t.Fatal("Update() diagnostics are empty, want diagnostics")
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	if _, _, err := svc.Update(a.ID, "bad", "5"); !errors.Is(err, ErrInvalidSiteContextKey) {
+		t.Fatalf("Update() error = %v, want ErrInvalidSiteContextKey", err)
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	if _, _, err := svc.Update(999, "site/d", "5"); !errors.Is(err, ErrSiteContextNotFound) {
+		t.Fatalf("Update() error = %v, want ErrSiteContextNotFound", err)
+	}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	if calls != 1 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 1", calls)
+	}
+
+	if _, _, err := svc.Update(a.ID, "site/c", "6"); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	want = map[string]any{"site/c": 6, "site/b": 2}
+	if got := svc.Values(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Values() = %#v, want %#v", got, want)
+	}
+	if calls != 2 {
+		t.Fatalf("OnRenderInputChange calls = %d, want 2", calls)
+	}
+}
+
 func TestSitePageServiceCountsPagesBySiteContext(t *testing.T) {
 	db := newSiteContextTestDB(t)
 

@@ -27,6 +27,7 @@ func viewData(c *fiber.Ctx, data fiber.Map) fiber.Map {
 	data["IsAlreadyOnSitePages"] = strings.Contains(c.Get("HX-Current-URL"), "/admin/site-pages")
 	data["IsAlreadyOnComponents"] = strings.Contains(c.Get("HX-Current-URL"), "/admin/components")
 	data["IsAlreadyOnMedia"] = strings.Contains(c.Get("HX-Current-URL"), "/admin/media")
+	data["IsAlreadyOnContext"] = strings.Contains(c.Get("HX-Current-URL"), "/admin/context")
 	return data
 }
 
@@ -90,6 +91,12 @@ func translatedValidationError(c *fiber.Ctx, err error) string {
 		return translate(c, "settings.storage.errors.secret_key_required")
 	case errors.Is(err, service.ErrStorageTestBodyMismatch):
 		return translate(c, "settings.storage.test.errors.body_mismatch")
+	case errors.Is(err, service.ErrInvalidSiteContextKey):
+		return translate(c, "context.errors.invalid_key")
+	case errors.Is(err, service.ErrSiteContextKeyAlreadyExists):
+		return translate(c, "context.errors.key_exists")
+	case errors.Is(err, service.ErrInvalidSiteContextValue):
+		return translate(c, "context.errors.invalid_value")
 	default:
 		return err.Error()
 	}

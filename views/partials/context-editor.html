@@ -1,0 +1,93 @@
+{{ with .ContextEditor }}
+<div id="context-editor" class="flex-1 flex flex-col min-h-0">
+  <header class="px-6 py-4 border-b border-neutral-700/50 bg-neutral-800/20">
+    <div class="flex items-center justify-between">
+      {{ if .ID }}<div>
+        <h2 class="text-lg font-semibold text-neutral-200 font-mono">{{ .Key }}</h2>
+        <p class="text-xs text-neutral-500 mt-0.5">{{ t .I18n "common.last_modified" }}: {{ .LastModifiedAt }}</p>
+      </div>{{ else }}
+      <div>
+        <h2 class="text-lg font-semibold text-neutral-200">{{ t .I18n "context.create_title" }}</h2>
+      </div>{{ end }}
+      <div class="flex items-center gap-2">
+        <button
+          id="context-submit-button"
+          type="submit"
+          form="context-form"
+          class="relative flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all duration-200 shadow-lg shadow-purple-900/20 active:scale-[0.98] cursor-pointer"
+          hx-disabled-elt="#context-key,#context-source,#context-submit-button,#context-delete-button"
+        >
+          <span class="flex items-center gap-2 [.htmx-request_&]:invisible">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{{ if .ID }}{{ t .I18n "common.save" }}{{ else }}{{ t .I18n "common.create" }}{{ end }}</span>
+          </span>
+          <span class="absolute inset-0 flex items-center justify-center invisible [.htmx-request_&]:visible text-white">
+            <span class="h-4 w-4">
+              {{ template "partials/spinner" . }}
+            </span>
+          </span>
+        </button>
+        {{ if .ID }}
+        <button
+          id="context-delete-button"
+          class="p-2 rounded-xl hover:bg-red-500/10 text-neutral-500 hover:text-red-400 transition-colors cursor-pointer"
+          hx-delete="/admin/context/{{ .ID }}"
+          hx-disabled-elt="#context-key,#context-source,#context-submit-button,#context-delete-button"
+          hx-confirm="{{ t .I18n "context.delete_confirm" }}"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+        {{ end }}
+      </div>
+    </div>
+  </header>
+  <form id="context-form" class="flex-1 flex flex-col overflow-hidden p-6 space-y-4"
+        {{ if .ID }}hx-put="/admin/context/{{.ID}}"{{ else }}hx-post="/admin/context"{{ end }}
+        hx-target="#context-editor"
+        hx-swap="outerHTML"
+        hx-indicator="#context-submit-button">
+    <div class="space-y-2">
+      <label class="text-sm font-medium text-neutral-300 ml-1" for="context-key">{{ t .I18n "context.key" }}</label>
+      <input
+        class="w-full bg-neutral-900/50 border text-neutral-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-4 transition-all duration-200 placeholder:text-neutral-600 font-mono {{ if .KeyErr }}border-red-500/50 focus:border-red-500 focus:ring-red-500/10{{ else }}border-neutral-700 focus:border-purple-500/50 focus:ring-purple-500/10{{ end }}"
+        type="text"
+        id="context-key"
+        name="key"
+        value="{{ .Key }}"
+        placeholder="{{ t .I18n "context.placeholders.key" }}"
+      >
+      {{ if .KeyErr }}
+      <div class="flex items-center gap-1.5 ml-1 mt-1 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <p class="text-xs font-medium text-red-400">{{ .KeyErr }}</p>
+      </div>
+      {{ end }}
+      <p class="ml-1 text-xs text-neutral-500">{{ t .I18n "context.key_helper" }}</p>
+    </div>
+    <div class="flex-1 flex flex-col space-y-2 min-h-0">
+      <label class="text-sm font-medium text-neutral-300 ml-1" for="context-source">{{ t .I18n "context.value" }}</label>
+      <textarea
+        class="flex-1 w-full bg-neutral-900/50 border border-neutral-700 text-neutral-200 rounded-xl px-4 py-3 text-lg outline-none focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 transition-all duration-200 placeholder:text-neutral-600 resize-none"
+        style="font-family: 'Ioveska', monospace;"
+        id="context-source"
+        name="source"
+        placeholder="{{ t .I18n "context.placeholders.value" }}"
+        >{{ .Source }}</textarea>
+      {{ if .SourceErr }}
+      <div class="flex items-center gap-1.5 ml-1 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <p class="text-xs font-medium text-red-400">{{ .SourceErr }}</p>
+      </div>
+      {{ end }}
+    </div>
+  </form>
+</div>
+{{ end }}
