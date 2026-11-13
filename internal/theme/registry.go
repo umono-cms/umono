@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/umono-cms/umono/internal/models"
@@ -26,6 +28,8 @@ var (
 	ErrContractMismatch = errors.New("contract.toml differs from the published contract")
 	// ErrRegistryUnreachable is returned when the registry cannot answer.
 	ErrRegistryUnreachable = errors.New("registry is unreachable")
+	// ErrRegistryURL is returned when UMONO_REGISTRY is not a valid registry URL.
+	ErrRegistryURL = errors.New("UMONO_REGISTRY must be an http or https root URL without a query or fragment")
 )
 
 // Registry verifies contracts against the registry. The request carries the
@@ -36,9 +40,23 @@ type Registry struct {
 	Client  *http.Client
 }
 
-// NewRegistry returns the registry of umono.dev.
-func NewRegistry() Registry {
-	return Registry{BaseURL: RegistryURL, Client: &http.Client{Timeout: 15 * time.Second}}
+// ParseRegistryURL checks the value of UMONO_REGISTRY, the root URL of a mirror
+// that replaces umono.dev.
+func ParseRegistryURL(v string) (string, error) {
+	u, err := url.Parse(v)
+	if err != nil {
+		return "", fmt.Errorf("%w: %q", ErrRegistryURL, v)
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.Contains(v, "#") || u.User != nil {
+		return "", fmt.Errorf("%w: %q", ErrRegistryURL, v)
+	}
+	return strings.TrimRight(v, "/"), nil
+}
+
+// NewRegistry returns the registry at baseURL, or the registry at RegistryURL
+// for umono.dev.
+func NewRegistry(baseURL string) Registry {
+	return Registry{BaseURL: baseURL, Client: &http.Client{Timeout: 15 * time.Second}}
 }
 
 // Verify fetches the published contract ref and compares it with src byte

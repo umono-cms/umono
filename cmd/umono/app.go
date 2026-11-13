@@ -28,7 +28,7 @@ import (
 
 // newApp migrates db, wires the services and handlers and registers the
 // routes. It does not listen.
-func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fiber.App, error) {
+func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, registryURL string) (*fiber.App, error) {
 	if err := db.AutoMigrate(
 		&models.Component{},
 		&models.SiteContext{},
@@ -102,7 +102,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	siteContextService.OnRenderInputChange(recomputeDiagnostics)
 	// themes/ and themes-pending/ are in the project root, on the same file
 	// system, next to umono.db.
-	themeService := service.NewThemeService("themes", "themes-pending", service.NewContractService(repository.NewContractRepository(db)), repository.NewThemeRepository(db), theme.NewRegistry())
+	themeService := service.NewThemeService("themes", "themes-pending", service.NewContractService(repository.NewContractRepository(db)), repository.NewThemeRepository(db), theme.NewRegistry(registryURL))
 	sitePageService.SetPageThemes(themeService)
 	themeService.OnRenderInputChange(recomputeDiagnostics)
 	if err := themeService.LoadActive(context.Background()); err != nil {

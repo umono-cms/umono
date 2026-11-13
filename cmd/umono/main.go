@@ -49,12 +49,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	registryURL, err := registryURLFromEnv()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	db, err := gorm.Open(sqlite.Open("umono.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatal("db err", err)
 	}
 
-	app, err := newApp(db, umonoSecret, devRoot)
+	app, err := newApp(db, umonoSecret, devRoot, registryURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,6 +82,17 @@ func devRootFromEnv() (string, error) {
 		return "", nil
 	}
 	return theme.ParseDevRoot(v)
+}
+
+// registryURLFromEnv returns the registry from UMONO_REGISTRY, the registry at
+// theme.RegistryURL (umono.dev) when the variable is not set. A set value must
+// be a valid root URL, or Umono does not start.
+func registryURLFromEnv() (string, error) {
+	v, ok := os.LookupEnv("UMONO_REGISTRY")
+	if !ok {
+		return theme.RegistryURL, nil
+	}
+	return theme.ParseRegistryURL(v)
 }
 
 func newUmonoSecretFromEnv() (*umonocrypto.Secret, error) {
