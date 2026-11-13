@@ -44,6 +44,9 @@ type SiteContextService struct {
 	values atomic.Pointer[map[string]any]
 
 	repo *repository.SiteContextRepository
+	// renderInputChanged is called after a change to the site contexts,
+	// which can change the render of any page.
+	renderInputChanged func(ctx context.Context)
 }
 
 // SiteContextService is a ContextProvider: the renders, the previews and the
@@ -89,24 +92,46 @@ func (s *SiteContextService) Save(key, source string) ([]compono.Diagnostic, err
 		return diagnostics, ErrInvalidSiteContextValue
 	}
 
+	if err := s.save(key, source, value); err != nil {
+		return nil, err
+	}
+
+	s.notifyRenderInputChange()
+	return nil, nil
+}
+
+// save saves the source of the site context of key and swaps its value in.
+// It holds writeMu for the write.
+func (s *SiteContextService) save(key, source string, value any) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
 	if err := s.repo.Save(key, source); err != nil {
-		return nil, err
+		return err
 	}
 
 	s.updateValues(func(values map[string]any) {
 		values[key] = value
 	})
 
-	return nil, nil
+	return nil
 }
 
 // Delete deletes the site context of key and its value. It returns
 // ErrSiteContextNotFound when there is no site context of the key. The pages
 // that use the key produce an unknown-key diagnostic from then on.
 func (s *SiteContextService) Delete(key string) error {
+	if err := s.delete(key); err != nil {
+		return err
+	}
+
+	s.notifyRenderInputChange()
+	return nil
+}
+
+// delete deletes the site context of key and its value. It holds writeMu for
+// the write.
+func (s *SiteContextService) delete(key string) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
@@ -139,6 +164,17 @@ func (s *SiteContextService) Rename(oldKey, newKey string) error {
 		return nil
 	}
 
+	if err := s.rename(oldKey, newKey); err != nil {
+		return err
+	}
+
+	s.notifyRenderInputChange()
+	return nil
+}
+
+// rename renames the site context of oldKey to newKey and moves its value to
+// the new key. It holds writeMu for the write.
+func (s *SiteContextService) rename(oldKey, newKey string) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
@@ -168,6 +204,19 @@ func (s *SiteContextService) Rename(oldKey, newKey string) error {
 	})
 
 	return nil
+}
+
+// OnRenderInputChange sets fn to be called after a site context is saved,
+// deleted or renamed, which can change the render of any page.
+func (s *SiteContextService) OnRenderInputChange(fn func(ctx context.Context)) {
+	s.renderInputChanged = fn
+}
+
+// notifyRenderInputChange tells the listener that a site context changed.
+func (s *SiteContextService) notifyRenderInputChange() {
+	if s.renderInputChanged != nil {
+		s.renderInputChanged(context.Background())
+	}
 }
 
 // Values returns the current values of the site contexts. Callers must not
