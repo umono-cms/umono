@@ -542,3 +542,38 @@ func TestSiteContextDeletedOrRenamedKeyIsUnknown(t *testing.T) {
 		t.Fatalf("hasUnknownKey(%q) = false, want true", "{{ context(site/other) }}")
 	}
 }
+
+func TestSitePageServiceCountsPagesBySiteContext(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	if err := db.AutoMigrate(&models.SitePage{}); err != nil {
+		t.Fatalf("migrate site pages: %v", err)
+	}
+
+	compiler, err := NewContentCompiler([]models.Component{
+		{Name: "NAV", Content: "{{ context(site/menu) }} {{ context(site/name) }}"},
+	})
+	if err != nil {
+		t.Fatalf("NewContentCompiler() error = %v", err)
+	}
+
+	svc := NewSitePageService(repository.NewSitePageRepository(db), nil, compiler)
+
+	pages := []models.SitePage{
+		{Name: "One", Slug: "one", Content: "{{ context(site/menu) }}", Enabled: true},
+		{Name: "Two", Slug: "two", Content: "{{ NAV }}", Enabled: false},
+		{Name: "Three", Slug: "three", Content: "{{ context(site/menu) }} {{ context(site/menu) }} {{ context(media-by-id/1) }}", Enabled: true},
+		{Name: "Four", Slug: "four", Content: "Plain", Enabled: true},
+	}
+	for i := range pages {
+		if err := db.Create(&pages[i]).Error; err != nil {
+			t.Fatalf("create page %s: %v", pages[i].Name, err)
+		}
+	}
+
+	want := map[string]int{"site/menu": 3, "site/name": 1}
+	got := svc.SiteContextPageCounts()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("SiteContextPageCounts() = %#v, want %#v", got, want)
+	}
+}
