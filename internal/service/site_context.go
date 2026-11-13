@@ -1,12 +1,23 @@
 package service
 
 import (
+	"errors"
+	"regexp"
 	"sync"
 	"sync/atomic"
 
 	"github.com/umono-cms/compono"
 	"github.com/umono-cms/umono/internal/repository"
 )
+
+// ErrInvalidSiteContextKey is returned when a site context key does not follow
+// the site context key grammar.
+var ErrInvalidSiteContextKey = errors.New("invalid site context key")
+
+// siteContextKeyPattern matches the site context keys. A site context key
+// starts with site/ and its segments follow Compono's context key grammar, so
+// the key can be written in context(...). Umono's own keys are outside site/.
+var siteContextKeyPattern = regexp.MustCompile(`^site(/[a-z0-9]+(-[a-z0-9]+)*)+$`)
 
 // SiteContextService keeps the values of the site contexts of the site. The
 // values are parsed from the sources of the site contexts and are read by the
@@ -47,6 +58,10 @@ func NewSiteContextService(repo *repository.SiteContextRepository) (*SiteContext
 // Save saves the source of the site context of key and parses it. A source
 // that does not parse removes the key from the values.
 func (s *SiteContextService) Save(key, source string) error {
+	if !siteContextKeyPattern.MatchString(key) {
+		return ErrInvalidSiteContextKey
+	}
+
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
