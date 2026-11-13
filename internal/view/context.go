@@ -6,11 +6,15 @@ import (
 
 // ContextEditorData is the data of the editor of a site context.
 type ContextEditorData struct {
-	ID             uint
-	Key            string
-	Source         string
-	KeyErr         string
-	SourceErr      string
+	ID          uint
+	Key         string
+	Source      string
+	KeyErr      string
+	SourceErr   string
+	Diagnostics []DiagnosticItem
+	// PageCount is the number of pages that use the stored key; only for a
+	// saved site context.
+	PageCount      int
 	LastModifiedAt string
 	I18n           any
 }

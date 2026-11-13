@@ -78,6 +78,13 @@ func NewSiteContextService(repo *repository.SiteContextRepository) (*SiteContext
 	return s, nil
 }
 
+// Check returns the diagnostics of source as a site context value, nil when
+// it parses. Their ranges are relative to source.
+func (s *SiteContextService) Check(source string) []compono.Diagnostic {
+	_, diagnostics := compono.ParseValue([]byte(source))
+	return diagnostics
+}
+
 // Save saves the source of the site context of key and parses it. A source
 // that does not parse is not saved: the row and the value of the key keep
 // the last valid value. The diagnostics that report why the source does not

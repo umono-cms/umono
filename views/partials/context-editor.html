@@ -69,6 +69,7 @@
       </div>
       {{ end }}
       <p class="ml-1 text-xs text-neutral-500">{{ t .I18n "context.key_helper" }}</p>
+      {{ if .ID }}<p id="context-page-count" data-page-count="{{ .PageCount }}" class="ml-1 text-xs text-neutral-400">{{ t .I18n "context.page_count" }} {{ .PageCount }}</p>{{ end }}
     </div>
     <div class="flex-1 flex flex-col space-y-2 min-h-0">
       <label class="text-sm font-medium text-neutral-300 ml-1" for="context-source">{{ t .I18n "context.value" }}</label>
@@ -78,6 +79,11 @@
         id="context-source"
         name="source"
         placeholder="{{ t .I18n "context.placeholders.value" }}"
+        hx-post="/admin/context/preview"
+        hx-trigger="keyup changed delay:750ms"
+        hx-target="#context-diagnostics"
+        hx-swap="innerHTML"
+        hx-indicator="this"
         >{{ .Source }}</textarea>
       {{ if .SourceErr }}
       <div class="flex items-center gap-1.5 ml-1 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
@@ -87,6 +93,7 @@
         <p class="text-xs font-medium text-red-400">{{ .SourceErr }}</p>
       </div>
       {{ end }}
+      <div id="context-diagnostics" class="max-h-40 overflow-auto">{{ template "partials/context-diagnostics" . }}</div>
     </div>
   </form>
 </div>
