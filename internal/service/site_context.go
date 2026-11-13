@@ -20,6 +20,14 @@ var ErrInvalidSiteContextKey = errors.New("invalid site context key")
 // parse are returned with it.
 var ErrInvalidSiteContextValue = errors.New("invalid site context value")
 
+// ErrSiteContextNotFound is returned when there is no site context of the
+// key that is deleted or renamed.
+var ErrSiteContextNotFound = errors.New("site context not found")
+
+// ErrSiteContextKeyAlreadyExists is returned when a site context is renamed
+// to a key that is already used by another site context.
+var ErrSiteContextKeyAlreadyExists = errors.New("site context key already exists")
+
 // siteContextKeyPattern matches the site context keys. A site context key
 // starts with site/ and its segments follow Compono's context key grammar, so
 // the key can be written in context(...). Umono's own keys are outside site/.
@@ -93,6 +101,73 @@ func (s *SiteContextService) Save(key, source string) ([]compono.Diagnostic, err
 	})
 
 	return nil, nil
+}
+
+// Delete deletes the site context of key and its value. It returns
+// ErrSiteContextNotFound when there is no site context of the key. The pages
+// that use the key produce an unknown-key diagnostic from then on.
+func (s *SiteContextService) Delete(key string) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	deleted, err := s.repo.Delete(key)
+	if err != nil {
+		return err
+	}
+	if !deleted {
+		return ErrSiteContextNotFound
+	}
+
+	s.updateValues(func(values map[string]any) {
+		delete(values, key)
+	})
+
+	return nil
+}
+
+// Rename renames the site context of oldKey to newKey and moves its value
+// to the new key. It returns ErrInvalidSiteContextKey when newKey does not
+// follow the site context key grammar, ErrSiteContextKeyAlreadyExists when
+// newKey is already used by another site context, and
+// ErrSiteContextNotFound when there is no site context of oldKey. The pages
+// that use the old key produce an unknown-key diagnostic from then on.
+func (s *SiteContextService) Rename(oldKey, newKey string) error {
+	if !siteContextKeyPattern.MatchString(newKey) {
+		return ErrInvalidSiteContextKey
+	}
+	if oldKey == newKey {
+		return nil
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	exists, err := s.repo.Exists(newKey)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return ErrSiteContextKeyAlreadyExists
+	}
+
+	renamed, err := s.repo.Rename(oldKey, newKey)
+	if err != nil {
+		return err
+	}
+	if !renamed {
+		return ErrSiteContextNotFound
+	}
+
+	s.updateValues(func(values map[string]any) {
+		value, ok := values[oldKey]
+		delete(values, oldKey)
+		if !ok {
+			return
+		}
+		values[newKey] = value
+	})
+
+	return nil
 }
 
 // Values returns the current values of the site contexts. Callers must not
