@@ -47,6 +47,7 @@ func TestTurkishHasNoMissingTexts(t *testing.T) {
 		"/admin/settings/about",
 		"/admin/system/jobs",
 		"/admin/system/errors",
+		"/admin/context/new",
 		"/admin/media",
 		"/admin/media/new",
 	}
