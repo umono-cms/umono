@@ -110,3 +110,73 @@ func TestMediaServiceNotifiesRenderInputChange(t *testing.T) {
 		t.Fatalf("calls = %d, want %d", got, want)
 	}
 }
+
+func TestSiteContextServiceNotifiesRenderInputChange(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+
+	calls := 0
+	svc.OnRenderInputChange(func(context.Context) {
+		calls++
+	})
+
+	if _, err := svc.Save("site/count", "[1,"); err == nil {
+		t.Fatalf("Save() error = %v, want non-nil", err)
+	}
+	if got, want := calls, 0; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+
+	if _, err := svc.Save("bad", "1"); err == nil {
+		t.Fatalf("Save() error = %v, want non-nil", err)
+	}
+	if got, want := calls, 0; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+
+	if _, err := svc.Save("site/count", "1"); err != nil {
+		t.Fatalf("Save() error = %v, want nil", err)
+	}
+	if got, want := calls, 1; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+
+	if _, err := svc.Save("site/count", "2"); err != nil {
+		t.Fatalf("Save() error = %v, want nil", err)
+	}
+	if got, want := calls, 2; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+
+	if err := svc.Rename("site/count", "site/total"); err != nil {
+		t.Fatalf("Rename() error = %v, want nil", err)
+	}
+	if got, want := calls, 3; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+
+	if err := svc.Rename("site/missing", "site/x"); err == nil {
+		t.Fatalf("Rename() error = %v, want non-nil", err)
+	}
+	if got, want := calls, 3; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+
+	if err := svc.Delete("site/total"); err != nil {
+		t.Fatalf("Delete() error = %v, want nil", err)
+	}
+	if got, want := calls, 4; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+
+	if err := svc.Delete("site/total"); err == nil {
+		t.Fatalf("Delete() error = %v, want non-nil", err)
+	}
+	if got, want := calls, 4; got != want {
+		t.Fatalf("calls = %d, want %d", got, want)
+	}
+}
