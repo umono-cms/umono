@@ -370,6 +370,28 @@ func (s *SitePageService) PublishedPageCountOfGlobal(name string) int {
 	return int(s.diagnosticRepo.CountPublishedPagesBySource(name))
 }
 
+// SiteContextPageCounts returns, for every site/ key, the number of pages that
+// use it in their content or through the globals they call. Every page counts,
+// disabled ones included, so the count shows what deleting or renaming the key
+// affects.
+func (s *SitePageService) SiteContextPageCounts() map[string]int {
+	counts := map[string]int{}
+	if s.contentCompiler == nil {
+		return counts
+	}
+
+	for _, page := range s.repo.GetAll() {
+		for _, key := range s.contentCompiler.ContextKeysUsedBy(page.Content) {
+			if !strings.HasPrefix(key, "site/") {
+				continue
+			}
+			counts[key]++
+		}
+	}
+
+	return counts
+}
+
 func (s *SitePageService) recomputeDiagnostics(ctx context.Context, page models.SitePage) error {
 	_, diagnostics, err := s.contentCompiler.CompileWithProviderContext(ctx, page.Content, s.pageRender(page).Options()...)
 	if err != nil {

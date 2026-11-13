@@ -259,6 +259,62 @@ func (c *ContentCompiler) contextKeys(source string, globals map[string]string) 
 	return keys
 }
 
+// ContextKeysUsedBy returns the context keys that source references and that
+// the globals it calls reference, following calls between globals, sorted and
+// without duplicates. A global that source does not reach is not included.
+func (c *ContentCompiler) ContextKeysUsedBy(source string) []string {
+	globals := *c.globals.Load()
+
+	seen := map[string]struct{}{}
+	c.collectContextKeys(source, ast.DefaultRootNode(), seen)
+	sourceAsGlobal := ast.DefaultEmptyNode()
+	sourceAsGlobal.SetRule(rule.NewGlobalCompDef())
+	c.collectContextKeys(source, sourceAsGlobal, seen)
+
+	visited := map[string]struct{}{}
+	queue := []string{source}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		analysis, err := compono.Analyze([]byte(current))
+		if err != nil {
+			continue
+		}
+
+		for _, ref := range analysis.Refs {
+			if ref.Local {
+				continue
+			}
+			globalSource, ok := globals[ref.Name]
+			if !ok {
+				continue
+			}
+			if _, done := visited[ref.Name]; done {
+				continue
+			}
+			visited[ref.Name] = struct{}{}
+
+			node := ast.DefaultEmptyNode()
+			node.SetRule(rule.NewGlobalCompDef())
+			c.collectContextKeys(globalSource, node, seen)
+
+			queue = append(queue, globalSource)
+		}
+	}
+
+	if len(seen) == 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(seen))
+	for key := range seen {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func (c *ContentCompiler) collectContextKeys(source string, root ast.Node, seen map[string]struct{}) {
 	if strings.TrimSpace(source) == "" {
 		return
