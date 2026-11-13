@@ -19,7 +19,7 @@ require (
 	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/umono-cms/compono v0.8.0
 	github.com/umono-cms/crypto v0.1.0
-	github.com/umono-cms/themecore v0.2.0
+	github.com/umono-cms/themecore v0.3.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.45.0
 	golang.org/x/net v0.62.0

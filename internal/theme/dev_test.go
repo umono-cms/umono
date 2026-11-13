@@ -3,6 +3,7 @@ package theme
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -135,7 +136,7 @@ func TestCheckDev(t *testing.T) {
 
 func TestCheckDevThemeAPIOutOfRange(t *testing.T) {
 	themesDir, root := writeDevTheme(t, func(b string) string {
-		return strings.Replace(b, "theme-api-version = 1", "theme-api-version = 2", 1)
+		return strings.Replace(b, "theme-api-version = 1", fmt.Sprintf("theme-api-version = %d", themecore.ThemeAPICurrent()+1), 1)
 	})
 	if _, err := CheckDev(themesDir, root); !errors.Is(err, ErrThemeAPI) {
 		t.Fatalf("CheckDev: errors.Is(err, ErrThemeAPI) = false; err = %v", err)
