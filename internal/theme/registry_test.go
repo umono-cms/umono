@@ -143,3 +143,52 @@ func TestRegistryVerifyUnreachable(t *testing.T) {
 		t.Fatalf("err = %v, want ErrRegistryUnreachable", err)
 	}
 }
+
+func TestParseRegistryURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{name: "https", input: "https://registry.example.lan", want: "https://registry.example.lan"},
+		{name: "http", input: "http://registry.example.lan", want: "http://registry.example.lan"},
+		{name: "trailing slash", input: "https://registry.example.lan/", want: "https://registry.example.lan"},
+		{name: "path and trailing slash", input: "http://10.0.0.5:8080/umono/", want: "http://10.0.0.5:8080/umono"},
+		{name: "empty", input: "", wantErr: true},
+		{name: "missing scheme", input: "registry.example.lan", wantErr: true},
+		{name: "unsupported scheme", input: "ftp://registry.example.lan", wantErr: true},
+		{name: "missing host", input: "https://", wantErr: true},
+		{name: "query", input: "https://registry.example.lan?x=1", wantErr: true},
+		{name: "empty query", input: "https://registry.example.lan/?", wantErr: true},
+		{name: "fragment", input: "https://registry.example.lan#top", wantErr: true},
+		{name: "relative path", input: "/registry", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseRegistryURL(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ParseRegistryURL(%q) returned nil error", tt.input)
+				}
+				if !errors.Is(err, ErrRegistryURL) {
+					t.Fatalf("err = %v, want ErrRegistryURL", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseRegistryURL(%q): %v", tt.input, err)
+			}
+			if got != tt.want {
+				t.Fatalf("ParseRegistryURL(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewRegistryUsesBaseURL(t *testing.T) {
+	if got, want := NewRegistry("http://example.test").BaseURL, "http://example.test"; got != want {
+		t.Fatalf("BaseURL = %q, want %q", got, want)
+	}
+}
