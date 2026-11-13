@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/umono-cms/compono"
@@ -284,4 +286,101 @@ func newSiteContextTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("migrate site contexts: %v", err)
 	}
 	return db
+}
+
+func TestSiteContextServiceBuildsTheRequestedValues(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if _, err := svc.Save("site/count", "42"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if _, err := svc.Save("site/flags", "[true]"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	got, err := svc.BuildCompileContext(context.Background(), []string{"site/count", "site/missing", "media-by-id/1"})
+	if err != nil {
+		t.Fatalf("BuildCompileContext() error = %v", err)
+	}
+	want := map[string]any{"site/count": 42}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("BuildCompileContext() = %#v, want %#v", got, want)
+	}
+}
+
+func TestSiteContextValuesReachPagesAndGlobals(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+	if _, err := svc.Save("site/count", "42"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	compiler, err := NewContentCompiler([]models.Component{
+		{Name: "COUNTER", Content: "~ count = context(site/count)\nCount {{ count }}"},
+	}, svc)
+	if err != nil {
+		t.Fatalf("NewContentCompiler() error = %v", err)
+	}
+	ctx := context.Background()
+
+	output, diagnostics, err := compiler.CompileWithProviderContext(ctx, "Total: {{ context(site/count) }}")
+	if err != nil {
+		t.Fatalf("CompileWithProviderContext() error = %v", err)
+	}
+	if strings.TrimSpace(output) != "<p>Total: 42</p>" {
+		t.Fatalf("CompileWithProviderContext() = %q", output)
+	}
+	if len(diagnostics) != 0 {
+		t.Fatalf("CompileWithProviderContext() diagnostics = %#v, want none", diagnostics)
+	}
+
+	output, _, err = compiler.CompileWithProviderContext(ctx, "{{ COUNTER }}")
+	if err != nil {
+		t.Fatalf("CompileWithProviderContext() error = %v", err)
+	}
+	if strings.TrimSpace(output) != "<p>Count 42</p>" {
+		t.Fatalf("CompileWithProviderContext() = %q", output)
+	}
+
+	output, _, err = compiler.PreviewComponentWithProviderContext(ctx, "PREVIEWED", "Total: {{ context(site/count) }}")
+	if err != nil {
+		t.Fatalf("PreviewComponentWithProviderContext() error = %v", err)
+	}
+	if !strings.Contains(output, "Total: 42") {
+		t.Fatalf("PreviewComponentWithProviderContext() = %q", output)
+	}
+
+	_, diagnostics, err = compiler.CompileWithProviderContext(ctx, "Total: {{ context(site/missing) }}")
+	if err != nil {
+		t.Fatalf("CompileWithProviderContext() error = %v", err)
+	}
+	foundUnknownKey := false
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == compono.CodeUnknownKey {
+			foundUnknownKey = true
+			break
+		}
+	}
+	if !foundUnknownKey {
+		t.Fatalf("CompileWithProviderContext() diagnostics = %#v, want an unknown-key diagnostic", diagnostics)
+	}
+
+	if _, err := svc.Save("site/count", "7"); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	output, _, err = compiler.CompileWithProviderContext(ctx, "Total: {{ context(site/count) }}")
+	if err != nil {
+		t.Fatalf("CompileWithProviderContext() error = %v", err)
+	}
+	if strings.TrimSpace(output) != "<p>Total: 7</p>" {
+		t.Fatalf("CompileWithProviderContext() = %q", output)
+	}
 }
