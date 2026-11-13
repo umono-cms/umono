@@ -446,3 +446,60 @@ func (p *recordingContextProvider) BuildCompileContext(_ context.Context, keys [
 	}
 	return values, nil
 }
+
+func TestContentCompilerContextKeysUsedBy(t *testing.T) {
+	compiler, err := NewContentCompiler([]models.Component{
+		{Name: "OUTER", Content: "~ x = context(site/a)\n{{ x }} {{ INNER }}"},
+		{Name: "INNER", Content: "{{ context(site/b) }}"},
+		{Name: "UNUSED", Content: "{{ context(site/c) }}"},
+		{Name: "LOOP_A", Content: "{{ LOOP_B }}"},
+		{Name: "LOOP_B", Content: "{{ LOOP_A }} {{ context(site/loop) }}"},
+	})
+	if err != nil {
+		t.Fatalf("NewContentCompiler() error = %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		source string
+		want   []string
+	}{
+		{
+			name:   "page and globals",
+			source: "{{ OUTER }} {{ context(media-by-id/1) }}",
+			want:   []string{"media-by-id/1", "site/a", "site/b"},
+		},
+		{
+			name:   "no references",
+			source: "Plain text",
+			want:   nil,
+		},
+		{
+			name:   "unused global",
+			source: "{{ context(site/x) }}",
+			want:   []string{"site/x"},
+		},
+		{
+			name:   "cycle",
+			source: "{{ LOOP_A }}",
+			want:   []string{"site/loop"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := compiler.ContextKeysUsedBy(tt.source)
+
+			if len(tt.want) == 0 {
+				if len(got) != 0 {
+					t.Fatalf("ContextKeysUsedBy() = %#v, want no keys", got)
+				}
+				return
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("ContextKeysUsedBy() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
