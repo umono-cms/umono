@@ -41,10 +41,11 @@ function applyPreview() {
 // nothing after a swap that brought no preview.
 document.addEventListener('htmx:afterSwap', applyPreview);
 
-// selectSourceRange selects a Compono range in the content textarea. Lines and
-// columns start at 1 and columns count code points; the end is exclusive.
-function selectSourceRange(startLine, startColumn, endLine, endColumn) {
-  const textarea = document.getElementById('content');
+// selectSourceRange selects a Compono range in the textarea of the given id.
+// It selects the content textarea when no id is given. Lines and columns
+// start at 1 and columns count code points; the end is exclusive.
+function selectSourceRange(startLine, startColumn, endLine, endColumn, textareaId) {
+  const textarea = document.getElementById(textareaId || 'content');
   if (!textarea) return;
   const lines = textarea.value.split('\n');
   const indexOf = (line, column) => {

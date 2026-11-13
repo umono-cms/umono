@@ -146,7 +146,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	mediaHandler := handler.NewMediaHandler(mediaService, storageService, optionService)
 	settingsHandler := handler.NewSettingsHandler(settingsService, optionService, sitePageService, storageService, themeService)
 	systemHandler := handler.NewSystemHandler(systemService, jobService, sitePageService)
-	contextHandler := handler.NewContextHandler(siteContextService)
+	contextHandler := handler.NewContextHandler(siteContextService, sitePageService)
 	optionHandler := handler.NewOptionHandler(optionService)
 
 	shellHandler, err := handler.NewShellHandler(umono.Shell())
@@ -317,6 +317,10 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	adminProtected.Post("/context",
 		middleware.OnlyHTMX(),
 		contextHandler.Create,
+	)
+	adminProtected.Post("/context/preview",
+		middleware.OnlyHTMX(),
+		contextHandler.Preview,
 	)
 	adminProtected.Put("/context/:id",
 		middleware.OnlyHTMX(),

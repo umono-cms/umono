@@ -1,0 +1,18 @@
+{{ if .Diagnostics }}
+<ul class="space-y-1">
+  {{ range .Diagnostics }}
+  <li>
+    <button
+      type="button"
+      class="w-full text-left rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-neutral-300 hover:bg-amber-500/10 transition-colors cursor-pointer"
+      onclick="selectSourceRange({{ .StartLine }}, {{ .StartColumn }}, {{ .EndLine }}, {{ .EndColumn }}, 'context-source')"
+    >
+      <span class="font-mono text-amber-300">{{ .StartLine }}:{{ .StartColumn }}</span>
+      <span class="font-mono text-neutral-400">{{ .Code }}</span>
+      {{ if .Source }}<span class="text-neutral-500">· {{ .Source }}</span>{{ end }}
+      <span class="mt-1 block">{{ .Message }}</span>
+    </button>
+  </li>
+  {{ end }}
+</ul>
+{{ end }}
