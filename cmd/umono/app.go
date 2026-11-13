@@ -63,7 +63,8 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	sitePageRepo := repository.NewSitePageRepository(db)
 	componentRepo := repository.NewComponentRepository(db)
 	componentService := service.NewComponentService(componentRepo)
-	if _, err := service.NewSiteContextService(repository.NewSiteContextRepository(db)); err != nil {
+	siteContextService, err := service.NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
 		return nil, fmt.Errorf("site context err: %w", err)
 	}
 
@@ -83,6 +84,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string) (*fibe
 	contentCompiler, err := service.NewContentCompiler(
 		componentService.GetAll(),
 		service.NewMediaContextProvider(mediaService),
+		siteContextService,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("content compiler err: %w", err)

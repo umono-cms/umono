@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"sync"
@@ -36,6 +37,11 @@ type SiteContextService struct {
 
 	repo *repository.SiteContextRepository
 }
+
+// SiteContextService is a ContextProvider: the renders, the previews and the
+// diagnostics see the same values, and a value that is saved is used by the
+// next render.
+var _ ContextProvider = (*SiteContextService)(nil)
 
 // NewSiteContextService loads the site contexts and parses their sources. A
 // source that does not parse is left out of the values.
@@ -93,6 +99,23 @@ func (s *SiteContextService) Save(key, source string) ([]compono.Diagnostic, err
 // modify the map.
 func (s *SiteContextService) Values() map[string]any {
 	return *s.values.Load()
+}
+
+// BuildCompileContext returns the values of the requested keys. It reads the
+// values once and skips the keys that have no value. It never fails.
+func (s *SiteContextService) BuildCompileContext(ctx context.Context, keys []string) (map[string]any, error) {
+	values := map[string]any{}
+
+	current := s.Values()
+	for _, key := range keys {
+		value, ok := current[key]
+		if !ok {
+			continue
+		}
+		values[key] = value
+	}
+
+	return values, nil
 }
 
 // updateValues applies change to a copy of the values and swaps the copy in.
