@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/umono-cms/compono"
 	"github.com/umono-cms/umono/internal/models"
 )
 
@@ -156,5 +157,82 @@ func TestContextScreen(t *testing.T) {
 	res, _ = sendForm(t, app, http.MethodDelete, path, cookie, nil)
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("delete missing site context: status %d, want %d", res.StatusCode, http.StatusNotFound)
+	}
+}
+
+func TestContextScreenShowsDiagnosticsAndPageCount(t *testing.T) {
+	app, db := newTestApp(t)
+	cookie := loginCookie(t, app)
+
+	if err := db.Create(&models.SitePage{
+		Name:    "Uses",
+		Slug:    "uses",
+		Content: "{{ context(site/count) }}",
+		Enabled: true,
+	}).Error; err != nil {
+		t.Fatalf("create Uses page: %v", err)
+	}
+	if err := db.Create(&models.SitePage{
+		Name:    "Hidden",
+		Slug:    "hidden",
+		Content: "Total {{ context(site/count) }}",
+		Enabled: false,
+	}).Error; err != nil {
+		t.Fatalf("create Hidden page: %v", err)
+	}
+
+	res, body := sendForm(t, app, http.MethodPost, "/admin/context", cookie, url.Values{
+		"key":    {"site/count"},
+		"source": {"42"},
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create site context: status %d, want %d", res.StatusCode, http.StatusOK)
+	}
+	if !strings.Contains(body, `data-page-count="2"`) {
+		t.Fatalf("create site context response body %q does not contain %q", body, `data-page-count="2"`)
+	}
+
+	var row models.SiteContext
+	if err := db.Where("key = ?", "site/count").First(&row).Error; err != nil {
+		t.Fatalf("load site/count: %v", err)
+	}
+
+	_, diags := compono.ParseValue([]byte("[1,"))
+	if len(diags) == 0 {
+		t.Fatal("ParseValue() diagnostics are empty, want diagnostics")
+	}
+
+	path := "/admin/context/" + strconv.FormatUint(uint64(row.ID), 10)
+	res, body = sendForm(t, app, http.MethodPut, path, cookie, url.Values{
+		"key":    {"site/count"},
+		"source": {"[1,"},
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("update site context: status %d, want %d", res.StatusCode, http.StatusOK)
+	}
+	for _, want := range []string{string(diags[0].Code), `id="context-diagnostics"`, `data-page-count="2"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("update site context response body %q does not contain %q", body, want)
+		}
+	}
+
+	res, body = sendForm(t, app, http.MethodPost, "/admin/context/preview", cookie, url.Values{
+		"source": {"[1,"},
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("preview invalid site context: status %d, want %d", res.StatusCode, http.StatusOK)
+	}
+	if !strings.Contains(body, string(diags[0].Code)) {
+		t.Fatalf("preview invalid site context response body %q does not contain %q", body, string(diags[0].Code))
+	}
+
+	res, body = sendForm(t, app, http.MethodPost, "/admin/context/preview", cookie, url.Values{
+		"source": {"42"},
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("preview valid site context: status %d, want %d", res.StatusCode, http.StatusOK)
+	}
+	if strings.Contains(body, "<li") {
+		t.Fatalf("preview valid site context response body %q unexpectedly contains %q", body, "<li")
 	}
 }

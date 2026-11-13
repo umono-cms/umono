@@ -792,3 +792,25 @@ func TestSitePageServiceCountsPagesBySiteContext(t *testing.T) {
 		t.Fatalf("SiteContextPageCounts() = %#v, want %#v", got, want)
 	}
 }
+
+func TestSiteContextServiceCheck(t *testing.T) {
+	db := newSiteContextTestDB(t)
+
+	svc, err := NewSiteContextService(repository.NewSiteContextRepository(db))
+	if err != nil {
+		t.Fatalf("NewSiteContextService() error = %v", err)
+	}
+
+	if got := svc.Check("42"); len(got) != 0 {
+		t.Fatalf("Check(%q) = %#v, want no diagnostics", "42", got)
+	}
+
+	_, want := compono.ParseValue([]byte("[1,"))
+	got := svc.Check("[1,")
+	if len(got) == 0 {
+		t.Fatal("Check() diagnostics are empty, want diagnostics")
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Check() diagnostics = %#v, want %#v", got, want)
+	}
+}
