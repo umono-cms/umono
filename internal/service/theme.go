@@ -52,6 +52,8 @@ var (
 // UMONO_REGISTRY names.
 type ContractRegistry interface {
 	Verify(ctx context.Context, ref models.Contract, src []byte) error
+	// Host is the host the registry is asked on.
+	Host() string
 }
 
 // ThemeCandidate is an installed theme that passed every check of
@@ -104,6 +106,9 @@ func NewThemeService(themesDir, pendingDir string, contracts *ContractService, t
 		parsed:     map[uint]themecore.Contract{},
 	}
 }
+
+// RegistryHost returns the host of the registry activation asks.
+func (s *ThemeService) RegistryHost() string { return s.registry.Host() }
 
 // Check runs the checks of activation on the installed theme at path, in
 // their order: the package checks, the contract check and the coverage check.

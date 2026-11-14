@@ -2,12 +2,17 @@ package handler
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/umono-cms/themecore"
 	"github.com/umono-cms/umono/internal/models"
 	"github.com/umono-cms/umono/internal/view"
 )
+
+// hostPlaceholder is the part of a translated text that carries the host of
+// the registry.
+const hostPlaceholder = "{{host}}"
 
 // RenderThemes renders the theme management page.
 func (h *settingsHandler) RenderThemes(c *fiber.Ctx) error {
@@ -28,11 +33,19 @@ func (h *settingsHandler) renderThemes(c *fiber.Ctx, message, failure string) er
 		return err
 	}
 	return Render(c, partial, fiber.Map{
-		"SettingsUl": h.settingsUl(c, "themes"),
-		"ThemesPage": view.NewThemesPage(list),
-		"Message":    message,
-		"Failure":    failure,
+		"SettingsUl":              h.settingsUl(c, "themes"),
+		"ThemesPage":              view.NewThemesPage(list),
+		"Message":                 message,
+		"Failure":                 failure,
+		"ActivateConfirmRegistry": h.translateHost(c, "settings.themes.activate_confirm_registry"),
+		"ActivateConfirmStored":   h.translateHost(c, "settings.themes.activate_confirm_stored"),
 	}, layouts...)
+}
+
+// translateHost translates key and puts the host of the registry in place of
+// its {{host}} placeholder.
+func (h *settingsHandler) translateHost(c *fiber.Ctx, key string) string {
+	return strings.ReplaceAll(translate(c, key), hostPlaceholder, h.themeService.RegistryHost())
 }
 
 // RenderThemePages lists the pages of a group bound to a newer minor than the
@@ -75,7 +88,7 @@ func (h *settingsHandler) ActivateTheme(c *fiber.Ctx) error {
 	if candidate.Asked {
 		note = "settings.themes.verified_registry"
 	}
-	return h.renderThemes(c, translate(c, "settings.themes.activated")+" "+translate(c, note), "")
+	return h.renderThemes(c, translate(c, "settings.themes.activated")+" "+h.translateHost(c, note), "")
 }
 
 // DeactivateTheme deactivates the active theme of the group of the form's
