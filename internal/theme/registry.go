@@ -59,6 +59,16 @@ func NewRegistry(baseURL string) Registry {
 	return Registry{BaseURL: baseURL, Client: &http.Client{Timeout: 15 * time.Second}}
 }
 
+// Host returns the host of the registry, with its port if it has one, as the
+// activation confirm names it.
+func (r Registry) Host() string {
+	u, err := url.Parse(r.BaseURL)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
 // Verify fetches the signature of ref and verifies src with it locally.
 func (r Registry) Verify(ctx context.Context, ref models.Contract, src []byte) error {
 	url := fmt.Sprintf("%s/registry/v1/contracts/%s/%s/v%d.%d.minisig", r.BaseURL, ref.Org, ref.Name, ref.Major, ref.Minor)

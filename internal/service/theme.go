@@ -47,11 +47,13 @@ var (
 	ErrDevTheme = errors.New("the group's active theme is the theme in development")
 )
 
-// ContractRegistry verifies a package's contract.toml against the published
-// contract. theme.Registry is the registry of umono.dev, or the mirror that
+// ContractRegistry verifies a package's contract.toml with the signature the
+// registry publishes for it. theme.Registry is umono.dev, or the mirror that
 // UMONO_REGISTRY names.
 type ContractRegistry interface {
 	Verify(ctx context.Context, ref models.Contract, src []byte) error
+	// Host is the host the registry is asked on.
+	Host() string
 }
 
 // ThemeCandidate is an installed theme that passed every check of
@@ -104,6 +106,9 @@ func NewThemeService(themesDir, pendingDir string, contracts *ContractService, t
 		parsed:     map[uint]themecore.Contract{},
 	}
 }
+
+// RegistryHost returns the host of the registry activation asks.
+func (s *ThemeService) RegistryHost() string { return s.registry.Host() }
 
 // Check runs the checks of activation on the installed theme at path, in
 // their order: the package checks, the contract check and the coverage check.

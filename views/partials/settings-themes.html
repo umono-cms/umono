@@ -110,7 +110,7 @@
                 {{ end }}
               </div>
               {{ if .Selectable }}
-              <form class="shrink-0" hx-post="/admin/settings/themes/activate" hx-target="#settings-content" hx-confirm="{{ if .Registry }}{{ t $.I18n "settings.themes.activate_confirm_registry" }}{{ else }}{{ t $.I18n "settings.themes.activate_confirm_stored" }}{{ end }}">
+              <form class="shrink-0" hx-post="/admin/settings/themes/activate" hx-target="#settings-content" hx-confirm="{{ if .Registry }}{{ $.ActivateConfirmRegistry }}{{ else }}{{ $.ActivateConfirmStored }}{{ end }}">
                 <input type="hidden" name="path" value="{{ .Path }}">
                 <button type="submit" class="cursor-pointer rounded-xl bg-purple-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-purple-500">{{ t $.I18n "settings.themes.activate" }}</button>
               </form>

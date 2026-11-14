@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/template/html/v2"
 	"github.com/umono-cms/themecore"
 	"github.com/umono-cms/umono"
+	"github.com/umono-cms/umono/internal/i18n"
 	"github.com/umono-cms/umono/internal/models"
 	"github.com/umono-cms/umono/internal/repository"
 	"github.com/umono-cms/umono/internal/service"
@@ -25,10 +26,17 @@ import (
 	"gorm.io/gorm"
 )
 
-type fakeThemeRegistry struct{ err error }
+type fakeThemeRegistry struct {
+	err  error
+	host string
+}
 
 func (f *fakeThemeRegistry) Verify(ctx context.Context, ref models.Contract, src []byte) error {
 	return f.err
+}
+
+func (f *fakeThemeRegistry) Host() string {
+	return f.host
 }
 
 func writeHandlerTheme(t *testing.T) string {
@@ -60,7 +68,7 @@ func writeHandlerTheme(t *testing.T) string {
 	return dir
 }
 
-func newThemesTestAppWithDB(t *testing.T, reg service.ContractRegistry) (*fiber.App, *service.ThemeService, *gorm.DB) {
+func newThemesTestAppWithDB(t *testing.T, reg service.ContractRegistry, middlewares ...fiber.Handler) (*fiber.App, *service.ThemeService, *gorm.DB) {
 	t.Helper()
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -84,6 +92,9 @@ func newThemesTestAppWithDB(t *testing.T, reg service.ContractRegistry) (*fiber.
 	engine.AddFunc("t", view.Translate)
 
 	app := fiber.New(fiber.Config{Views: engine})
+	for _, middleware := range middlewares {
+		app.Use(middleware)
+	}
 	app.Get("/admin/settings/themes", h.RenderThemes)
 	app.Get("/admin/settings/themes/pages", h.RenderThemePages)
 	app.Post("/admin/settings/themes/activate", h.ActivateTheme)
@@ -95,6 +106,25 @@ func newThemesTestAppWithDB(t *testing.T, reg service.ContractRegistry) (*fiber.
 func newThemesTestApp(t *testing.T, reg service.ContractRegistry) (*fiber.App, *service.ThemeService) {
 	t.Helper()
 	app, ts, _ := newThemesTestAppWithDB(t, reg)
+	return app, ts
+}
+
+func loadThemesTestBundle(t *testing.T) *i18n.Bundle {
+	t.Helper()
+	bundle, err := i18n.LoadBundle(umono.Locales(), "en")
+	if err != nil {
+		t.Fatalf("i18n.LoadBundle() error = %v", err)
+	}
+	return bundle
+}
+
+func newThemesTestAppEnglish(t *testing.T, reg service.ContractRegistry) (*fiber.App, *service.ThemeService) {
+	t.Helper()
+	bundle := loadThemesTestBundle(t)
+	app, ts, _ := newThemesTestAppWithDB(t, reg, func(c *fiber.Ctx) error {
+		c.Locals("I18n", bundle.Translator("en"))
+		return c.Next()
+	})
 	return app, ts
 }
 
@@ -324,5 +354,72 @@ func TestThemesPageLinksTheUncoveredPages(t *testing.T) {
 	}
 	if !strings.Contains(body, "/admin/settings/themes/pages?contract=") {
 		t.Fatalf("body = %q, want to contain %q", body, "/admin/settings/themes/pages?contract=")
+	}
+}
+
+func TestThemesActivateConfirmNamesTheMirror(t *testing.T) {
+	app, _ := newThemesTestAppEnglish(t, &fakeThemeRegistry{host: "registry.example.lan"})
+
+	status, body := htmxGet(t, app, "/admin/settings/themes")
+	if got, want := status, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if !strings.Contains(body, "registry.example.lan") {
+		t.Fatalf("body = %q, want to contain %q", body, "registry.example.lan")
+	}
+	for _, unwanted := range []string{"umono.dev", "{{host}}"} {
+		if strings.Contains(body, unwanted) {
+			t.Fatalf("body = %q, want to not contain %q", body, unwanted)
+		}
+	}
+}
+
+func TestThemesActivatedNamesTheMirror(t *testing.T) {
+	app, _ := newThemesTestAppEnglish(t, &fakeThemeRegistry{host: "registry.example.lan"})
+
+	status, body := htmxPost(t, app, "/admin/settings/themes/activate", url.Values{"path": {"acme/minimal/0.1.0"}})
+	if got, want := status, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if !strings.Contains(body, "contract was verified on registry.example.lan.") {
+		t.Fatalf("body = %q, want to contain %q", body, "contract was verified on registry.example.lan.")
+	}
+	if strings.Contains(body, "{{host}}") {
+		t.Fatalf("body = %q, want to not contain %q", body, "{{host}}")
+	}
+}
+
+func TestThemesConfirmNamesUmonoDev(t *testing.T) {
+	app, _ := newThemesTestAppEnglish(t, &fakeThemeRegistry{host: "umono.dev"})
+
+	status, body := htmxGet(t, app, "/admin/settings/themes")
+	if got, want := status, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if !strings.Contains(body, "verified on umono.dev") {
+		t.Fatalf("body = %q, want to contain %q", body, "verified on umono.dev")
+	}
+}
+
+func TestLocalesNameTheRegistryHost(t *testing.T) {
+	bundle := loadThemesTestBundle(t)
+	keys := []string{
+		"settings.themes.activate_confirm_registry",
+		"settings.themes.activate_confirm_stored",
+		"settings.themes.verified_registry",
+		"settings.themes.verified_stored",
+	}
+
+	for _, locale := range bundle.SupportedLocales() {
+		translator := bundle.Translator(locale.Code)
+		for _, key := range keys {
+			translation := translator.T(key)
+			if !strings.Contains(translation, "{{host}}") {
+				t.Errorf("locale %q translation %q = %q, want to contain %q", locale.Code, key, translation, "{{host}}")
+			}
+			if strings.Contains(translation, "umono.dev") {
+				t.Errorf("locale %q translation %q = %q, want to not contain %q", locale.Code, key, translation, "umono.dev")
+			}
+		}
 	}
 }

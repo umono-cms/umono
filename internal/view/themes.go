@@ -75,8 +75,9 @@ type ThemeView struct {
 	// Selectable is false for the active theme and for a theme the list
 	// shows a reason for.
 	Selectable bool
-	// Registry tells whether activation asks umono.dev: the site has no
-	// stored record of the contract.
+	// Registry tells whether activation asks the registry (umono.dev or the
+	// mirror UMONO_REGISTRY names): the site has no stored record of the
+	// contract.
 	Registry bool
 	Pending  *PendingInstallView
 }
