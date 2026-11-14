@@ -1,0 +1,37 @@
+schema      = "https://umono.dev/schemas/theme-contract/v1"
+id          = "umono/page"
+version     = "v0.1"
+description = "A site with a header, a menu, free content and a footer"
+
+[[layouts]]
+id          = "page"
+description = "Free content between the site header and footer"
+source = '''
+~ site-name! = "" home-url! = "" menu-label! = "" menu! = [] content! = NO_MATTER footer! = NO_MATTER
+{{ SITE_HEADER site-name = site-name home-url = home-url menu-label = menu-label menu = menu }}
+{{ MAIN content = content }}
+{{ FOOTER content = footer }}
+'''
+
+[[components]]
+name   = "SITE_HEADER"
+source = '''
+~ site-name! = "" home-url! = "" menu-label! = "" menu! = []
+{{ HEADER content = SITE_HEADER_BODY(site-name = site-name home-url = home-url menu-label = menu-label menu = menu) }}
+
+~ SITE_HEADER_BODY site-name! = "" home-url! = "" menu-label! = "" menu! = []
+{{ LINK text = site-name url = home-url }}
+{{ NAV label = menu-label content = MAIN_MENU(menu = menu) }}
+'''
+
+[[components]]
+name   = "MAIN_MENU"
+expose = true
+source = '''
+~ menu! = []
+{{ LIST items = menu item = MENU_ITEM }}
+
+~ MENU_ITEM item! = {}
+{{ LINK text = item.text url = item.url current = item.current }}
+{{ LIST items = item.children item = MENU_ITEM }}
+'''

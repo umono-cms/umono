@@ -1,40 +1,78 @@
 package theme
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/umono-cms/themecore"
 	"github.com/umono-cms/umono/internal/models"
 )
 
-func TestRegistryVerify(t *testing.T) {
-	src, err := os.ReadFile("testdata/package/contract.toml")
+// signedRef is the reference of the signed contract fixture.
+var signedRef = models.Contract{Org: "umono", Name: "page", Major: 0, Minor: 1}
+
+// readSignedContract returns the bytes of the published contract fixture.
+func readSignedContract(t *testing.T) []byte {
+	t.Helper()
+	src, err := os.ReadFile("testdata/signed/contract.toml")
 	if err != nil {
 		t.Fatalf("read contract: %v", err)
 	}
+	return src
+}
+
+// readSignedSignature returns the bytes of the signature of the contract
+// fixture.
+func readSignedSignature(t *testing.T) []byte {
+	t.Helper()
+	sig, err := os.ReadFile("testdata/signed/contract.toml.minisig")
+	if err != nil {
+		t.Fatalf("read signature: %v", err)
+	}
+	return sig
+}
+
+// flipBase64Char replaces the character at index of a base64 line with
+// another base64 character, so the line stays valid base64.
+func flipBase64Char(line string, index int) string {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	b := []byte(line)
+	old := b[index]
+	repl := byte(alphabet[0])
+	if old == repl {
+		repl = alphabet[1]
+	}
+	b[index] = repl
+	return string(b)
+}
+
+func TestRegistryVerify(t *testing.T) {
+	src := readSignedContract(t)
+	sig := readSignedSignature(t)
 
 	var saved *http.Request
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		saved = r.Clone(context.Background())
-		_, _ = w.Write(src)
+		_, _ = w.Write(sig)
 	}))
 	defer srv.Close()
 
-	ref := models.Contract{Org: "example", Name: "blog", Major: 1, Minor: 0}
 	ctx := context.Background()
 
-	if err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, ref, src); err != nil {
+	if err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, signedRef, src); err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
 
 	if saved.Method != "GET" {
 		t.Fatalf("method = %q, want GET", saved.Method)
 	}
-	if got, want := saved.URL.Path, "/registry/v1/contracts/example/blog/v1.0"; got != want {
+	if got, want := saved.URL.Path, "/registry/v1/contracts/umono/page/v0.1.minisig"; got != want {
 		t.Fatalf("path = %q, want %q", got, want)
 	}
 	if saved.URL.RawQuery != "" {
@@ -51,27 +89,92 @@ func TestRegistryVerify(t *testing.T) {
 	}
 }
 
-func TestRegistryVerifyRejectsAnotherFile(t *testing.T) {
-	src, err := os.ReadFile("testdata/package/contract.toml")
-	if err != nil {
-		t.Fatalf("read contract: %v", err)
-	}
+func TestRegistryVerifyRejectsChangedContract(t *testing.T) {
+	src := append(readSignedContract(t), '\n')
+	sig := readSignedSignature(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(src)
-		_, _ = w.Write([]byte("\n"))
+		_, _ = w.Write(sig)
 	}))
 	defer srv.Close()
 
-	ref := models.Contract{Org: "example", Name: "blog", Major: 1, Minor: 0}
 	ctx := context.Background()
 
-	err = (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, ref, src)
+	err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, signedRef, src)
 	if err == nil {
 		t.Fatalf("Verify returned nil, want error")
 	}
-	if !errors.Is(err, ErrContractMismatch) {
-		t.Fatalf("err = %v, want ErrContractMismatch", err)
+	if !errors.Is(err, themecore.ErrContractSignature) {
+		t.Fatalf("err = %v, want ErrContractSignature", err)
+	}
+}
+
+func TestRegistryVerifyRejectsChangedSignature(t *testing.T) {
+	src := readSignedContract(t)
+
+	lines := strings.Split(strings.TrimSuffix(string(readSignedSignature(t)), "\n"), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("signature has %d lines, want 4", len(lines))
+	}
+	lines[1] = flipBase64Char(lines[1], 30)
+	changed := []byte(strings.Join(lines, "\n") + "\n")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(changed)
+	}))
+	defer srv.Close()
+
+	ctx := context.Background()
+
+	err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, signedRef, src)
+	if err == nil {
+		t.Fatalf("Verify returned nil, want error")
+	}
+	if !errors.Is(err, themecore.ErrContractSignature) {
+		t.Fatalf("err = %v, want ErrContractSignature", err)
+	}
+}
+
+func TestRegistryVerifyRejectsAnotherRef(t *testing.T) {
+	src := readSignedContract(t)
+	sig := readSignedSignature(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(sig)
+	}))
+	defer srv.Close()
+
+	ref := models.Contract{Org: "umono", Name: "blog", Major: 0, Minor: 1}
+	ctx := context.Background()
+
+	err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, ref, src)
+	if err == nil {
+		t.Fatalf("Verify returned nil, want error")
+	}
+	if !errors.Is(err, themecore.ErrContractSignature) {
+		t.Fatalf("err = %v, want ErrContractSignature", err)
+	}
+}
+
+func TestRegistryVerifyReadsAtMost4KiB(t *testing.T) {
+	src := readSignedContract(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(bytes.Repeat([]byte("a"), 8192))
+	}))
+	defer srv.Close()
+
+	ctx := context.Background()
+
+	err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, signedRef, src)
+	if err == nil {
+		t.Fatalf("Verify returned nil, want error")
+	}
+	if !errors.Is(err, themecore.ErrContractSignature) {
+		t.Fatalf("err = %v, want ErrContractSignature", err)
+	}
+	if errors.Is(err, ErrRegistryUnreachable) {
+		t.Fatalf("err = %v, want no ErrRegistryUnreachable", err)
 	}
 }
 
@@ -81,15 +184,11 @@ func TestRegistryVerifyNotPublished(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ref := models.Contract{Org: "example", Name: "blog", Major: 1, Minor: 0}
 	ctx := context.Background()
 
-	src, err := os.ReadFile("testdata/package/contract.toml")
-	if err != nil {
-		t.Fatalf("read contract: %v", err)
-	}
+	src := readSignedContract(t)
 
-	err = (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, ref, src)
+	err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, signedRef, src)
 	if err == nil {
 		t.Fatalf("Verify returned nil, want error")
 	}
@@ -104,15 +203,11 @@ func TestRegistryVerifyServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ref := models.Contract{Org: "example", Name: "blog", Major: 1, Minor: 0}
 	ctx := context.Background()
 
-	src, err := os.ReadFile("testdata/package/contract.toml")
-	if err != nil {
-		t.Fatalf("read contract: %v", err)
-	}
+	src := readSignedContract(t)
 
-	err = (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, ref, src)
+	err := (Registry{BaseURL: srv.URL, Client: srv.Client()}).Verify(ctx, signedRef, src)
 	if err == nil {
 		t.Fatalf("Verify returned nil, want error")
 	}
@@ -127,15 +222,11 @@ func TestRegistryVerifyUnreachable(t *testing.T) {
 	client := srv.Client()
 	srv.Close()
 
-	ref := models.Contract{Org: "example", Name: "blog", Major: 1, Minor: 0}
 	ctx := context.Background()
 
-	src, err := os.ReadFile("testdata/package/contract.toml")
-	if err != nil {
-		t.Fatalf("read contract: %v", err)
-	}
+	src := readSignedContract(t)
 
-	err = (Registry{BaseURL: baseURL, Client: client}).Verify(ctx, ref, src)
+	err := (Registry{BaseURL: baseURL, Client: client}).Verify(ctx, signedRef, src)
 	if err == nil {
 		t.Fatalf("Verify returned nil, want error")
 	}
