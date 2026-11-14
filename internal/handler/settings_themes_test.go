@@ -278,6 +278,30 @@ func TestThemesActivateOutdated(t *testing.T) {
 	}
 }
 
+func TestThemesActivateContractSignature(t *testing.T) {
+	app, ts := newThemesTestApp(t, &fakeThemeRegistry{err: fmt.Errorf("umono/page@v0.1: %w", fmt.Errorf("%w: line 2: signature does not match the contract", themecore.ErrContractSignature))})
+
+	status, body := htmxPost(t, app, "/admin/settings/themes/activate", url.Values{"path": {"acme/minimal/0.1.0"}})
+	if got, want := status, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	for _, want := range []string{"settings.themes.activate_failed", "settings.themes.contract_signature"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("body = %q, want to contain %q", body, want)
+		}
+	}
+	for _, unwanted := range []string{"signature does not match the contract", "line 2"} {
+		if strings.Contains(body, unwanted) {
+			t.Fatalf("body = %q, want to not contain %q", body, unwanted)
+		}
+	}
+
+	blog := models.Contract{Org: "example", Name: "blog", Major: 1, Minor: 0}.Group()
+	if _, ok := ts.Loaded(blog); ok {
+		t.Fatalf("ts.Loaded(blog) = true, want false")
+	}
+}
+
 func TestThemesDeactivate(t *testing.T) {
 	app, ts := newThemesTestApp(t, &fakeThemeRegistry{})
 
@@ -420,6 +444,19 @@ func TestLocalesNameTheRegistryHost(t *testing.T) {
 			if strings.Contains(translation, "umono.dev") {
 				t.Errorf("locale %q translation %q = %q, want to not contain %q", locale.Code, key, translation, "umono.dev")
 			}
+		}
+	}
+}
+
+func TestLocalesHaveTheContractSignatureMessage(t *testing.T) {
+	bundle := loadThemesTestBundle(t)
+	for _, locale := range bundle.SupportedLocales() {
+		translation := bundle.Translator(locale.Code).T("settings.themes.contract_signature")
+		if translation == "" {
+			t.Errorf("locale %q translation %q = %q, want not empty", locale.Code, "settings.themes.contract_signature", translation)
+		}
+		if strings.HasPrefix(translation, i18n.MissingPrefix) {
+			t.Errorf("locale %q translation %q = %q, want not to start with %q", locale.Code, "settings.themes.contract_signature", translation, i18n.MissingPrefix)
 		}
 	}
 }
