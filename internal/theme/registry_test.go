@@ -283,3 +283,23 @@ func TestNewRegistryUsesBaseURL(t *testing.T) {
 		t.Fatalf("BaseURL = %q, want %q", got, want)
 	}
 }
+
+func TestRegistryHost(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "official registry", input: "https://umono.dev", want: "umono.dev"},
+		{name: "mirror", input: "https://registry.example.lan", want: "registry.example.lan"},
+		{name: "host with port", input: "http://10.0.0.5:8080/umono", want: "10.0.0.5:8080"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewRegistry(tt.input).Host(); got != tt.want {
+				t.Fatalf("Host() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

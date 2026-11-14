@@ -23,6 +23,7 @@ type fakeRegistry struct {
 	ref   models.Contract
 	src   []byte
 	err   error
+	host  string
 }
 
 func (f *fakeRegistry) Verify(ctx context.Context, ref models.Contract, src []byte) error {
@@ -30,6 +31,10 @@ func (f *fakeRegistry) Verify(ctx context.Context, ref models.Contract, src []by
 	f.ref = ref
 	f.src = src
 	return f.err
+}
+
+func (f *fakeRegistry) Host() string {
+	return f.host
 }
 
 func contractSource(t *testing.T) []byte {
@@ -268,5 +273,14 @@ func TestThemeServiceCheckRunsThePackageChecksFirst(t *testing.T) {
 	}
 	if reg.calls != 0 {
 		t.Fatalf("reg.calls = %d, want 0", reg.calls)
+	}
+}
+
+func TestThemeServiceRegistryHost(t *testing.T) {
+	reg := &fakeRegistry{host: "registry.example.lan"}
+	svc, _ := newThemeTestService(t, reg)
+
+	if got, want := svc.RegistryHost(), "registry.example.lan"; got != want {
+		t.Fatalf("RegistryHost() = %q, want %q", got, want)
 	}
 }
