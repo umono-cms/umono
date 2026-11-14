@@ -47,8 +47,8 @@ var (
 	ErrDevTheme = errors.New("the group's active theme is the theme in development")
 )
 
-// ContractRegistry verifies a package's contract.toml against the published
-// contract. theme.Registry is the registry of umono.dev, or the mirror that
+// ContractRegistry verifies a package's contract.toml with the signature the
+// registry publishes for it. theme.Registry is umono.dev, or the mirror that
 // UMONO_REGISTRY names.
 type ContractRegistry interface {
 	Verify(ctx context.Context, ref models.Contract, src []byte) error
