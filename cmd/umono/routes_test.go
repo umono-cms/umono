@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -47,6 +48,20 @@ func newTestApp(t *testing.T) (*fiber.App, *gorm.DB) {
 		t.Fatalf("open db: %v", err)
 	}
 
+	secret := newTestSecret(t)
+
+	app, err := newApp(db, secret, "", theme.RegistryURL)
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	return app, db
+}
+
+// newTestSecret returns the secret of the test umono key.
+func newTestSecret(t *testing.T) *umonocrypto.Secret {
+	t.Helper()
+
 	key, err := umonocrypto.ParseHexString(testUmonoSecret)
 	if err != nil {
 		t.Fatalf("parse hex: %v", err)
@@ -57,12 +72,7 @@ func newTestApp(t *testing.T) (*fiber.App, *gorm.DB) {
 		t.Fatalf("new secret: %v", err)
 	}
 
-	app, err := newApp(db, secret, "", theme.RegistryURL)
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-
-	return app, db
+	return secret
 }
 
 // The favicon table comes with the automatic migration at startup.
@@ -70,6 +80,77 @@ func TestNewAppMigratesTheFaviconTable(t *testing.T) {
 	_, db := newTestApp(t)
 	if !db.Migrator().HasTable(&models.Favicon{}) {
 		t.Fatal("newApp did not create the favicons table")
+	}
+}
+
+// TestFaviconRouteWithoutAFavicon checks that /favicon.ico does not fall to /:slug? and render the 404 page of the site.
+func TestFaviconRouteWithoutAFavicon(t *testing.T) {
+	app, _ := newTestApp(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/favicon.ico", nil)
+	res, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("got status %d, want %d", res.StatusCode, http.StatusNotFound)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if len(body) != 0 {
+		t.Fatalf("got body %q, want empty", string(body))
+	}
+}
+
+// TestFaviconRouteServesTheFaviconLoadedAtStartup: the favicon is read from the database when the app starts.
+func TestFaviconRouteServesTheFaviconLoadedAtStartup(t *testing.T) {
+	_, db := newTestApp(t)
+
+	content := []byte("\x89PNG\r\n\x1a\nfavicon")
+	if result := db.Create(&models.Favicon{
+		ID:          models.FaviconID,
+		Content:     content,
+		ContentType: "image/png",
+		SHA256:      "cafe",
+	}); result.Error != nil {
+		t.Fatalf("create favicon: %v", result.Error)
+	}
+
+	app, err := newApp(db, newTestSecret(t), "", theme.RegistryURL)
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/favicon.ico", nil)
+	res, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("got status %d, want %d", res.StatusCode, http.StatusOK)
+	}
+
+	if got := res.Header.Get("Content-Type"); got != "image/png" {
+		t.Fatalf("got Content-Type %q, want %q", got, "image/png")
+	}
+
+	if got, want := res.Header.Get("ETag"), strconv.Quote("cafe"); got != want {
+		t.Fatalf("got ETag %q, want %q", got, want)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if !bytes.Equal(body, content) {
+		t.Fatalf("got body %q, want %q", string(body), string(content))
 	}
 }
 
