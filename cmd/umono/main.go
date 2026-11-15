@@ -110,6 +110,8 @@ func newUmonoSecretFromEnv() (*umonocrypto.Secret, error) {
 	return umonocrypto.New(key, []byte("umono-secrets"))
 }
 
+// updateEnvFile clears the plaintext credentials in the .env file and writes
+// their hashes. Every other line of the .env file is left as it is.
 func updateEnvFile(envFile map[string]string, username, password string) error {
 	hashedUsername, err := credentials.Hash(username)
 	if err != nil {
@@ -121,22 +123,17 @@ func updateEnvFile(envFile map[string]string, username, password string) error {
 		return err
 	}
 
-	content := ""
-	content += "APP_ENV=" + os.Getenv("APP_ENV") + "\n"
-	content += "SESSION_DRIVER=" + os.Getenv("SESSION_DRIVER") + "\n\n"
-
-	content += "PORT=" + os.Getenv("PORT") + "\n"
-	content += "DSN=" + os.Getenv("DSN") + "\n\n"
-
-	if umonoSecret := strings.TrimSpace(envFile["UMONO_SECRET"]); umonoSecret != "" {
-		content += "UMONO_SECRET=" + umonoSecret + "\n\n"
+	content, err := os.ReadFile(".env")
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 
-	content += "USERNAME=\n"
-	content += "PASSWORD=\n\n"
-
-	content += "HASHED_USERNAME=" + credentials.Encode(hashedUsername) + "\n"
-	content += "HASHED_PASSWORD=" + credentials.Encode(hashedPassword) + "\n\n"
+	updated := setEnvLines(string(content), [][2]string{
+		{credentials.UsernameEnvKey, ""},
+		{credentials.PasswordEnvKey, ""},
+		{credentials.HashedUsernameEnvKey, credentials.Encode(hashedUsername)},
+		{credentials.HashedPasswordEnvKey, credentials.Encode(hashedPassword)},
+	})
 
 	file, err := os.OpenFile(".env", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
@@ -144,8 +141,7 @@ func updateEnvFile(envFile map[string]string, username, password string) error {
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(content)
-	if err != nil {
+	if _, err := file.WriteString(updated); err != nil {
 		return err
 	}
 
@@ -155,6 +151,67 @@ func updateEnvFile(envFile map[string]string, username, password string) error {
 	os.Unsetenv("UMONO_SECRET")
 
 	return nil
+}
+
+// setEnvLines writes the given key values into the content of an env file.
+// The line of a key that is written is replaced with the key and its value,
+// every other line is kept as it is. Keys that the content does not have yet
+// are appended at the end, each one on its own line.
+func setEnvLines(content string, values [][2]string) string {
+	written := make(map[string]string, len(values))
+	for _, value := range values {
+		written[value[0]] = value[1]
+	}
+
+	seen := make(map[string]bool, len(values))
+	lines := strings.Split(content, "\n")
+
+	for i, line := range lines {
+		key := envLineKey(line)
+		value, ok := written[key]
+		if !ok {
+			continue
+		}
+
+		lines[i] = key + "=" + value
+		seen[key] = true
+	}
+
+	updated := strings.Join(lines, "\n")
+
+	for _, value := range values {
+		if seen[value[0]] {
+			continue
+		}
+
+		if updated != "" && !strings.HasSuffix(updated, "\n") {
+			updated += "\n"
+		}
+
+		updated += value[0] + "=" + value[1] + "\n"
+		seen[value[0]] = true
+	}
+
+	return updated
+}
+
+// envLineKey returns the key of an env file line, "" for a line without a key,
+// a comment line and a line without a value.
+func envLineKey(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+		return ""
+	}
+
+	key, _, ok := strings.Cut(trimmed, "=")
+	if !ok {
+		return ""
+	}
+
+	key = strings.TrimSpace(key)
+	key = strings.TrimPrefix(key, "export ")
+
+	return strings.TrimSpace(key)
 }
 
 func ensureAdminCredentials() error {

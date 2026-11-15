@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -157,6 +158,71 @@ func TestEnsureAdminCredentialsKeepsExistingHashes(t *testing.T) {
 	}
 	if envFile["HASHED_USERNAME"] != hashedUsername || envFile["HASHED_PASSWORD"] != hashedPassword {
 		t.Fatal("expected existing hashes to be left untouched")
+	}
+}
+
+func TestEnsureAdminCredentialsKeepsOtherKeys(t *testing.T) {
+	chdirTemp(t)
+	writeEnvFile(t, "# mirror of the registry\n"+
+		"UMONO_REGISTRY=https://registry.example.lan\n"+
+		"UMONO_THEME_DEV=/srv/theme\n"+
+		"UMONO_SECRET=persisted-secret\n"+
+		"USERNAME=new-admin\n"+
+		"PASSWORD=new-password\n")
+	setCredentialEnv(t, "", "", "", "")
+
+	if err := ensureAdminCredentials(); err != nil {
+		t.Fatalf("ensure admin credentials: %v", err)
+	}
+
+	envFile, err := godotenv.Read(".env")
+	if err != nil {
+		t.Fatalf("read env file: %v", err)
+	}
+
+	if envFile["UMONO_REGISTRY"] != "https://registry.example.lan" {
+		t.Fatalf("expected UMONO_REGISTRY to be preserved, got %q", envFile["UMONO_REGISTRY"])
+	}
+	if envFile["UMONO_THEME_DEV"] != "/srv/theme" {
+		t.Fatalf("expected UMONO_THEME_DEV to be preserved, got %q", envFile["UMONO_THEME_DEV"])
+	}
+	if envFile["UMONO_SECRET"] != "persisted-secret" {
+		t.Fatalf("expected UMONO_SECRET to be preserved, got %q", envFile["UMONO_SECRET"])
+	}
+
+	raw, err := os.ReadFile(".env")
+	if err != nil {
+		t.Fatalf("read env file: %v", err)
+	}
+	if !strings.Contains(string(raw), "# mirror of the registry") {
+		t.Fatalf("expected the comment to be kept, got:\n%s", raw)
+	}
+
+	if port, ok := envFile["PORT"]; ok {
+		t.Fatalf("expected PORT to stay out of the env file, got %q", port)
+	}
+
+	if envFile["USERNAME"] != "" {
+		t.Fatalf("expected USERNAME to be cleared, got %q", envFile["USERNAME"])
+	}
+	if envFile["PASSWORD"] != "" {
+		t.Fatalf("expected PASSWORD to be cleared, got %q", envFile["PASSWORD"])
+	}
+
+	hashedUsername, err := credentials.DecodeHash(envFile["HASHED_USERNAME"])
+	if err != nil {
+		t.Fatalf("decode hashed username: %v", err)
+	}
+	if !credentials.Matches(hashedUsername, "new-admin") {
+		t.Fatal("expected username hash to match")
+	}
+
+	hashedPassword, err := credentials.DecodeHash(envFile["HASHED_PASSWORD"])
+	if err != nil {
+		t.Fatalf("decode hashed password: %v", err)
+	}
+	if !credentials.Matches(hashedPassword, "new-password") {
+		t.Fatal("expected password hash to match")
 	}
 }
 
@@ -370,4 +436,37 @@ func TestRegistryURLFromEnv(t *testing.T) {
 			t.Fatalf("expected %v, got %v", theme.ErrRegistryURL, err)
 		}
 	})
+}
+
+func TestRegistryURLSurvivesTheFirstStart(t *testing.T) {
+	chdirTemp(t)
+	writeEnvFile(t, "UMONO_SECRET=persisted-secret\n"+
+		"UMONO_REGISTRY=https://registry.example.lan/\n"+
+		"USERNAME=new-admin\n"+
+		"PASSWORD=new-password\n")
+	setCredentialEnv(t, "", "", "", "")
+
+	t.Setenv("UMONO_REGISTRY", "")
+	if err := os.Unsetenv("UMONO_REGISTRY"); err != nil {
+		t.Fatalf("unsetenv: %v", err)
+	}
+
+	if err := ensureAdminCredentials(); err != nil {
+		t.Fatalf("ensure admin credentials: %v", err)
+	}
+
+	if err := os.Unsetenv("UMONO_REGISTRY"); err != nil {
+		t.Fatalf("unsetenv: %v", err)
+	}
+	if err := godotenv.Load(); err != nil {
+		t.Fatalf("load env file: %v", err)
+	}
+
+	url, err := registryURLFromEnv()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if url != "https://registry.example.lan" {
+		t.Fatalf("expected %q, got %q", "https://registry.example.lan", url)
+	}
 }
