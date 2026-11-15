@@ -1,0 +1,61 @@
+<div id="settings-favicon" class="px-6 pb-6 max-w-xl space-y-4" data-favicon-href="{{ .FaviconHref }}">
+  <div class="space-y-2">
+    <label class="text-sm font-medium text-neutral-300 ml-1" for="favicon">{{ t .I18n "settings.general.favicon" }}</label>
+    <p class="text-sm text-neutral-400">{{ t .I18n "settings.general.favicon_description" }}</p>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-neutral-700 bg-neutral-900/50">
+      {{ with .FaviconHref }}
+        <img src="{{ . }}" alt="{{ t $.I18n "settings.general.favicon_preview" }}" class="h-8 w-8 object-contain">
+      {{ else }}
+        <span class="px-1 text-center text-xs text-neutral-500">{{ t .I18n "settings.general.favicon_none" }}</span>
+      {{ end }}
+    </div>
+    <form
+      id="settings-favicon-form"
+      class="flex flex-1 flex-wrap items-center gap-3"
+      hx-post="/admin/settings/favicon"
+      hx-encoding="multipart/form-data"
+      hx-target="#settings-favicon"
+      hx-swap="outerHTML"
+      hx-disabled-elt="#favicon,#settings-favicon-upload-button,#settings-favicon-remove-button"
+    >
+      <input
+        id="favicon"
+        name="favicon"
+        type="file"
+        accept=".png,.ico,image/png,image/x-icon,image/vnd.microsoft.icon"
+        required
+        class="min-w-0 flex-1 text-sm text-neutral-400 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-neutral-700 file:px-3 file:py-2 file:text-sm file:text-neutral-200 hover:file:bg-neutral-600"
+      >
+      <button
+        id="settings-favicon-upload-button"
+        type="submit"
+        class="relative flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all duration-200 shadow-lg shadow-purple-900/20 active:scale-[0.98] cursor-pointer"
+      >
+        <span class="[.htmx-request_&]:invisible">{{ if .FaviconHref }}{{ t .I18n "settings.general.favicon_replace" }}{{ else }}{{ t .I18n "settings.general.favicon_upload" }}{{ end }}</span>
+        <span class="absolute inset-0 flex items-center justify-center invisible [.htmx-request_&]:visible text-white">
+          <span class="h-4 w-4">
+            {{ template "partials/spinner" . }}
+          </span>
+        </span>
+      </button>
+      {{ if .FaviconHref }}
+        <button
+          id="settings-favicon-remove-button"
+          type="button"
+          hx-delete="/admin/settings/favicon"
+          hx-target="#settings-favicon"
+          hx-swap="outerHTML"
+          class="text-sm font-medium px-4 py-2 rounded-xl border border-neutral-700 text-neutral-300 hover:border-red-500/40 hover:text-red-200 transition-all duration-200 cursor-pointer"
+        >{{ t .I18n "settings.general.favicon_remove" }}</button>
+      {{ end }}
+    </form>
+  </div>
+  {{ if .FaviconStatusTitle }}
+    <div class="rounded-2xl border px-4 py-3 text-sm {{ if .FaviconStatusSuccess }}border-emerald-500/20 bg-emerald-500/10 text-emerald-100{{ else }}border-red-500/20 bg-red-500/10 text-red-200{{ end }}">
+      <p class="font-medium">{{ .FaviconStatusTitle }}</p>
+      <p class="mt-1 text-xs leading-5 {{ if .FaviconStatusSuccess }}text-emerald-100/80{{ else }}text-red-200/80{{ end }}">{{ .FaviconStatusMessage }}</p>
+    </div>
+  {{ end }}
+</div>
