@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/umono-cms/umono/internal/favicon"
 	"github.com/umono-cms/umono/internal/repository"
 )
 
@@ -66,8 +67,7 @@ func (s *FaviconService) Current() (Favicon, bool) {
 // Save saves the favicon of the site and swaps it in. It keeps a copy of the
 // content, so a change to the content of the caller does not change the
 // favicon that is served. When the save fails, the favicon in memory stays
-// as it was. It does not check the type or the size of the content, the
-// caller does.
+// as it was. It does not check the type or the size of the content; Upload does.
 func (s *FaviconService) Save(content []byte, contentType string) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -87,6 +87,19 @@ func (s *FaviconService) Save(content []byte, contentType string) error {
 	})
 
 	return nil
+}
+
+// Upload saves content as the favicon of the site with the type detected from
+// its bytes. A content that favicon.Detect rejects is not saved and the
+// favicon stays as it was; the error wraps favicon.ErrTooLarge or
+// favicon.ErrFormat.
+func (s *FaviconService) Upload(content []byte) error {
+	contentType, err := favicon.Detect(content)
+	if err != nil {
+		return err
+	}
+
+	return s.Save(content, contentType)
 }
 
 // Remove removes the favicon of the site and clears the one in memory. When
