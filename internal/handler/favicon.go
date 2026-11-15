@@ -8,6 +8,10 @@ import (
 	"github.com/umono-cms/umono/internal/service"
 )
 
+// faviconHrefLocal is the key of the local that holds the address the
+// templates link the favicon with.
+const faviconHrefLocal = "FaviconHref"
+
 // FaviconSource gives the favicon that is served and whether there is one.
 type FaviconSource interface {
 	Current() (service.Favicon, bool)
@@ -48,4 +52,18 @@ func (h *FaviconHandler) Serve(c *fiber.Ctx) error {
 	}
 
 	return c.Send(favicon.Content)
+}
+
+// SetHref is a middleware that puts the address the templates link the favicon
+// with into the locals: /favicon.ico?v= and the SHA-256 of the favicon, or ""
+// when there is none. ?v= changes the address when the favicon changes, because
+// browsers keep the favicon in a cache of their own. It reads the favicon on
+// every request, so a new favicon is linked from the next request on.
+func (h *FaviconHandler) SetHref(c *fiber.Ctx) error {
+	href := ""
+	if favicon, ok := h.source.Current(); ok {
+		href = "/favicon.ico?v=" + favicon.SHA256
+	}
+	c.Locals(faviconHrefLocal, href)
+	return c.Next()
 }

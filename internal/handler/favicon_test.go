@@ -22,6 +22,16 @@ func (s stubFaviconSource) Current() (service.Favicon, bool) {
 	return s.favicon, s.ok
 }
 
+// mutableFaviconSource is a favicon source that can change between requests.
+type mutableFaviconSource struct {
+	favicon service.Favicon
+	ok      bool
+}
+
+func (s *mutableFaviconSource) Current() (service.Favicon, bool) {
+	return s.favicon, s.ok
+}
+
 func newFaviconTestApp(t *testing.T, source FaviconSource) *fiber.App {
 	t.Helper()
 
@@ -198,5 +208,58 @@ func TestFaviconWithoutAFaviconIsNotFound(t *testing.T) {
 	}
 	if len(body) != 0 {
 		t.Fatalf("got body %q, want empty", string(body))
+	}
+}
+
+func TestFaviconSetHrefFollowsTheCurrentFavicon(t *testing.T) {
+	src := &mutableFaviconSource{}
+
+	app := fiber.New()
+	app.Use(NewFaviconHandler(src).SetHref)
+	app.Get("/", func(c *fiber.Ctx) error {
+		href, _ := viewData(c, nil)["FaviconHref"].(string)
+		return c.SendString(href)
+	})
+
+	get := func() string {
+		t.Helper()
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatalf("request: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("got status %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+
+		return string(body)
+	}
+
+	if got := get(); got != "" {
+		t.Fatalf("got body %q, want empty", got)
+	}
+
+	src.favicon = service.Favicon{SHA256: "aaaa"}
+	src.ok = true
+	if got := get(); got != "/favicon.ico?v=aaaa" {
+		t.Fatalf("got body %q, want %q", got, "/favicon.ico?v=aaaa")
+	}
+
+	src.favicon.SHA256 = "bbbb"
+	if got := get(); got != "/favicon.ico?v=bbbb" {
+		t.Fatalf("got body %q, want %q", got, "/favicon.ico?v=bbbb")
+	}
+
+	src.ok = false
+	if got := get(); got != "" {
+		t.Fatalf("got body %q, want empty", got)
 	}
 }

@@ -22,6 +22,7 @@ func viewData(c *fiber.Ctx, data fiber.Map) fiber.Map {
 	data["Dir"] = c.Locals("Dir")
 	data["IsHTMX"] = c.Locals("IsHTMX")
 	data["Version"] = umono.Version
+	data["FaviconHref"] = c.Locals(faviconHrefLocal)
 	data["IsAlreadyOnSettings"] = strings.Contains(c.Get("HX-Current-URL"), "/admin/settings")
 	data["IsAlreadyOnSystem"] = strings.Contains(c.Get("HX-Current-URL"), "/admin/system")
 	data["IsAlreadyOnSitePages"] = strings.Contains(c.Get("HX-Current-URL"), "/admin/site-pages")
