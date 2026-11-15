@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ .Title }}</title>
+  {{- with .FaviconHref }}
+  <link rel="icon" href="{{ . }}">
+  {{- end }}
   <link rel="stylesheet" href="/_umono/umono-shell.css">
   <link rel="stylesheet" href="/_theme/{{ .ThemeRelease }}/theme.css">
   <script nonce="{{ .Nonce }}" src="/_umono/umono-root.js" defer></script>

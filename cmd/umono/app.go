@@ -182,6 +182,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, regist
 		return c.Next()
 	})
 	app.Use(middleware.I18nContext(optionService, bundle))
+	app.Use(faviconHandler.SetHref)
 
 	app.Use("/static", staticCacheControl(umono.Version), filesystem.New(filesystem.Config{
 		Root:   http.FS(umono.Public()),

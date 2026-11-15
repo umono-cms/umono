@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ t .I18n "admin.layout.title" }}</title>
+  {{- with .FaviconHref }}
+  <link rel="icon" href="{{ . }}">
+  {{- end }}
   <link rel="stylesheet" href="/static/css/style.css?v={{.Version}}">
   <link rel="stylesheet" href="/static/css/editor-font.css?v={{.Version}}">
   <script src="/static/js/htmx.min.js?v={{.Version}}"></script>
