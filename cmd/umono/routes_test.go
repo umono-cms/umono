@@ -154,6 +154,103 @@ func TestFaviconRouteServesTheFaviconLoadedAtStartup(t *testing.T) {
 	}
 }
 
+// getPage requests path and returns the body it answers with. It does not
+// follow the redirects. It fails unless the status is 200 or 404.
+func getPage(t *testing.T, app *fiber.App, path, cookie string) string {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	if cookie != "" {
+		req.Header.Set("Cookie", cookie)
+	}
+	res, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("%s: test: %v", path, err)
+	}
+	body, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatalf("%s: read body: %v", path, err)
+	}
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNotFound {
+		t.Fatalf("%s: got status %d, want %d or %d", path, res.StatusCode, http.StatusOK, http.StatusNotFound)
+	}
+	return string(body)
+}
+
+// faviconPages returns the body of every full page of the site and of the
+// admin, by path. The pages of the admin need a session, so it signs in.
+func faviconPages(t *testing.T, app *fiber.App) map[string]string {
+	t.Helper()
+
+	pages := map[string]string{}
+
+	for _, path := range []string{"/", "/missing", "/admin/login"} {
+		pages[path] = getPage(t, app, path, "")
+	}
+
+	cookie := loginCookie(t, app)
+	for _, path := range []string{"/admin/site-pages/new", "/admin/media", "/admin/settings/general", "/admin/system/jobs", "/admin/context/new"} {
+		pages[path] = getPage(t, app, path, cookie)
+	}
+
+	return pages
+}
+
+// TestTemplatesWithoutAFaviconHaveNoIconLink: without a favicon, no full page
+// links one.
+func TestTemplatesWithoutAFaviconHaveNoIconLink(t *testing.T) {
+	app, _ := newTestApp(t)
+
+	for path, body := range faviconPages(t, app) {
+		if !strings.Contains(body, "<head>") {
+			t.Errorf("%s: the body has no <head>", path)
+			continue
+		}
+		if strings.Contains(body, `rel="icon"`) {
+			t.Errorf("%s: the body links an icon", path)
+		}
+	}
+}
+
+// TestTemplatesLinkTheFavicon: with a favicon, every full page links it in its
+// head.
+func TestTemplatesLinkTheFavicon(t *testing.T) {
+	_, db := newTestApp(t)
+
+	content := []byte("\x89PNG\r\n\x1a\nfavicon")
+	if result := db.Create(&models.Favicon{
+		ID:          models.FaviconID,
+		Content:     content,
+		ContentType: "image/png",
+		SHA256:      "cafe",
+	}); result.Error != nil {
+		t.Fatalf("create favicon: %v", result.Error)
+	}
+
+	app, err := newApp(db, newTestSecret(t), "", theme.RegistryURL)
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	link := `<link rel="icon" href="/favicon.ico?v=cafe">`
+	for path, body := range faviconPages(t, app) {
+		i := strings.Index(body, link)
+		if i < 0 {
+			t.Errorf("%s: the body does not link the favicon", path)
+			continue
+		}
+		j := strings.Index(body, "</head>")
+		if j < 0 {
+			t.Errorf("%s: the body has no </head>", path)
+			continue
+		}
+		if i > j {
+			t.Errorf("%s: the link to the favicon comes after </head>", path)
+		}
+	}
+}
+
 // loginCookie signs in and returns the session cookie as a Cookie header value.
 func loginCookie(t *testing.T, app *fiber.App) string {
 	form := url.Values{"username": {testAdminUsername}, "password": {testAdminPassword}}
