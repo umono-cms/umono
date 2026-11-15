@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"image"
+	"image/png"
 	"testing"
 
+	"github.com/umono-cms/umono/internal/favicon"
 	"github.com/umono-cms/umono/internal/models"
 	"github.com/umono-cms/umono/internal/repository"
 	"gorm.io/driver/sqlite"
@@ -177,6 +181,100 @@ func TestFaviconServiceRemove(t *testing.T) {
 	if _, ok := second.Current(); ok {
 		t.Fatal("expected no favicon in second service")
 	}
+}
+
+func TestFaviconServiceUploadDetectsTheType(t *testing.T) {
+	db := newFaviconTestDB(t)
+	svc := newFaviconTestService(t, db)
+	pngBytes := faviconTestPNG(t)
+
+	if err := svc.Upload(pngBytes); err != nil {
+		t.Fatalf("upload favicon: %v", err)
+	}
+
+	current, ok := svc.Current()
+	if !ok {
+		t.Fatal("expected favicon")
+	}
+	if current.ContentType != string(favicon.TypePNG) {
+		t.Fatalf("unexpected favicon content type: got %q want %q", current.ContentType, string(favicon.TypePNG))
+	}
+	if !bytes.Equal(current.Content, pngBytes) {
+		t.Fatalf("unexpected favicon content: %q", current.Content)
+	}
+}
+
+func TestFaviconServiceUploadRejectionKeepsTheFavicon(t *testing.T) {
+	db := newFaviconTestDB(t)
+	svc := newFaviconTestService(t, db)
+	pngBytes := faviconTestPNG(t)
+
+	if err := svc.Upload(pngBytes); err != nil {
+		t.Fatalf("upload favicon: %v", err)
+	}
+
+	tooLarge := make([]byte, favicon.MaxSize+1)
+	copy(tooLarge, pngBytes)
+
+	cases := []struct {
+		name    string
+		content []byte
+		wantErr error
+	}{
+		{
+			name:    "unsupported format",
+			content: []byte("GIF89a"),
+			wantErr: favicon.ErrFormat,
+		},
+		{
+			name:    "too large",
+			content: tooLarge,
+			wantErr: favicon.ErrTooLarge,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := svc.Upload(tc.content)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Upload() error = %v, want %v", err, tc.wantErr)
+			}
+
+			current, ok := svc.Current()
+			if !ok {
+				t.Fatal("expected favicon")
+			}
+			if !bytes.Equal(current.Content, pngBytes) {
+				t.Fatalf("unexpected favicon content: %q", current.Content)
+			}
+			if current.ContentType != string(favicon.TypePNG) {
+				t.Fatalf("unexpected favicon content type: got %q want %q", current.ContentType, string(favicon.TypePNG))
+			}
+
+			second := newFaviconTestService(t, db)
+			secondCurrent, ok := second.Current()
+			if !ok {
+				t.Fatal("expected favicon in second service")
+			}
+			if !bytes.Equal(secondCurrent.Content, pngBytes) {
+				t.Fatalf("unexpected second service favicon content: %q", secondCurrent.Content)
+			}
+			if secondCurrent.ContentType != string(favicon.TypePNG) {
+				t.Fatalf("unexpected second service favicon content type: got %q want %q", secondCurrent.ContentType, string(favicon.TypePNG))
+			}
+		})
+	}
+}
+
+func faviconTestPNG(t *testing.T) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatalf("png.Encode() error = %v, want nil", err)
+	}
+
+	return buf.Bytes()
 }
 
 func newFaviconTestDB(t *testing.T) *gorm.DB {
