@@ -78,6 +78,11 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, regist
 		return nil, fmt.Errorf("i18n err: %w", err)
 	}
 	optionService := service.NewOptionService(optionRepo, bundle)
+	// The favicon is loaded into memory at startup, so serving it does not read the database.
+	faviconService, err := service.NewFaviconService(repository.NewFaviconRepository(db))
+	if err != nil {
+		return nil, fmt.Errorf("favicon err: %w", err)
+	}
 	mediaService := service.NewMediaService(mediaRepo, storageRepo, optionRepo, secretService, "uploads/.pending")
 	if err := mediaService.EnsureDefaultLocalStorage("uploads"); err != nil {
 		return nil, fmt.Errorf("media storage err: %w", err)
@@ -149,6 +154,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, regist
 	systemHandler := handler.NewSystemHandler(systemService, jobService, sitePageService)
 	contextHandler := handler.NewContextHandler(siteContextService, sitePageService)
 	optionHandler := handler.NewOptionHandler(optionService)
+	faviconHandler := handler.NewFaviconHandler(faviconService)
 
 	shellHandler, err := handler.NewShellHandler(umono.Shell())
 	if err != nil {
@@ -408,6 +414,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, regist
 
 	app.Get("/_umono/:file", shellHandler.Serve)
 	app.Get("/_theme/:release/*", themeHandler.Serve)
+	app.Get("/favicon.ico", faviconHandler.Serve)
 	app.Get("/robots.txt", siteHandler.RenderRobotsTxt)
 	app.Get("/sitemap.xml", siteHandler.RenderSitemap)
 
