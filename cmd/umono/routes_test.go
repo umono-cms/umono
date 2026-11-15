@@ -65,6 +65,14 @@ func newTestApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	return app, db
 }
 
+// The favicon table comes with the automatic migration at startup.
+func TestNewAppMigratesTheFaviconTable(t *testing.T) {
+	_, db := newTestApp(t)
+	if !db.Migrator().HasTable(&models.Favicon{}) {
+		t.Fatal("newApp did not create the favicons table")
+	}
+}
+
 // loginCookie signs in and returns the session cookie as a Cookie header value.
 func loginCookie(t *testing.T, app *fiber.App) string {
 	form := url.Values{"username": {testAdminUsername}, "password": {testAdminPassword}}

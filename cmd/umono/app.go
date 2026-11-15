@@ -36,6 +36,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, regist
 		&models.SitePage{},
 		&models.PageDiagnostic{},
 		&models.Option{},
+		&models.Favicon{},
 		&models.Storage{},
 		&models.Media{},
 		&models.MediaVariant{},
