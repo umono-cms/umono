@@ -155,6 +155,7 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, regist
 	contextHandler := handler.NewContextHandler(siteContextService, sitePageService)
 	optionHandler := handler.NewOptionHandler(optionService)
 	faviconHandler := handler.NewFaviconHandler(faviconService)
+	faviconSettingsHandler := handler.NewFaviconSettingsHandler(faviconService)
 
 	shellHandler, err := handler.NewShellHandler(umono.Shell())
 	if err != nil {
@@ -312,6 +313,8 @@ func newApp(db *gorm.DB, umonoSecret *umonocrypto.Secret, devRoot string, regist
 	adminProtected.Post("/settings/themes/pending/reject", middleware.OnlyHTMX(), settingsHandler.RejectPending)
 	adminProtected.Post("/settings/themes/records/delete", middleware.OnlyHTMX(), settingsHandler.DeleteContractRecord)
 	adminProtected.Get("/settings/about", settingsHandler.RenderAbout)
+	adminProtected.Post("/settings/favicon", middleware.OnlyHTMX(), faviconSettingsHandler.Upload)
+	adminProtected.Delete("/settings/favicon", middleware.OnlyHTMX(), faviconSettingsHandler.Remove)
 	adminProtected.Get("/system", systemHandler.Index)
 	adminProtected.Get("/system/jobs", systemHandler.RenderJobs)
 	adminProtected.Get("/system/errors", systemHandler.RenderErrors)

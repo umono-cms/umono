@@ -610,6 +610,32 @@ function initClipboardButtons(root = document) {
   });
 }
 
+// syncFaviconLink keeps the icon link of the page in step with the favicon
+// field after an upload or a removal. htmx swaps the field, not the <head>,
+// so the tab would keep the old icon until the next full page load.
+function syncFaviconLink(root = document) {
+  const field = root.id === 'settings-favicon' ? root : root.querySelector?.('#settings-favicon');
+  if (!field) {
+    return;
+  }
+
+  const href = field.dataset.faviconHref || '';
+  let link = document.head.querySelector('link[rel="icon"]');
+  if (!href) {
+    link?.remove();
+    return;
+  }
+
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  if (link.getAttribute('href') !== href) {
+    link.setAttribute('href', href);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initComponentNameGuidance();
   initMediaAliasGuidance();
@@ -622,4 +648,5 @@ document.addEventListener('htmx:load', (event) => {
   initMediaAliasGuidance(event.target);
   initClipboardButtons(event.target);
   initMediaUpload(event.target);
+  syncFaviconLink(event.target);
 });
