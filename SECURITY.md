@@ -1,6 +1,6 @@
 # Security Policy for Umono
 
-We take the security of Umono very seriously. As a modern, open-source Content Management System, ensuring the safety of our users' data and infrastructure is a top priority.
+Umono is developed by a single developer, Yunus Emre Bulut. I take its security seriously: the safety of its users' data and infrastructure is a top priority.
 
 ## Supported Versions
 
@@ -13,19 +13,19 @@ Umono is currently in active development. To maintain a fast development pace, *
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Umono, we appreciate your help in disclosing it to us in a responsible manner.
+If you discover a security vulnerability in Umono, I appreciate your help in disclosing it to me in a responsible manner.
 
 **🚨 Please DO NOT report security vulnerabilities through public GitHub issues or discussions.**
 
 Instead, please report them privately via email to: **yunusemrebulut123@gmail.com**
 
-Please include the following information in your report to help us understand and resolve the issue quickly:
+Please include the following information in your report to help me understand and resolve the issue quickly:
 * **Description:** A brief description of the vulnerability.
 * **Steps to Reproduce:** Detailed steps to reproduce the issue.
 * **Impact:** The potential impact of the vulnerability (e.g., what an attacker could achieve).
 * **Suggested Mitigation:** Any potential solutions or ideas on how to fix it (optional but highly appreciated).
 
 ### Response Timeline
-* We will acknowledge receipt of your vulnerability report within **48 hours**.
-* We will investigate the issue and determine if it is a valid vulnerability.
-* We strive to keep you informed about our progress and will notify you when a patch is released.
+* I will acknowledge receipt of your vulnerability report within **48 hours**.
+* I will investigate the issue and determine if it is a valid vulnerability.
+* I strive to keep you informed about my progress and will notify you when a patch is released.
