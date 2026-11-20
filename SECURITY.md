@@ -15,7 +15,7 @@ Umono is currently in active development. To maintain a fast development pace, *
 
 Known vulnerabilities in Umono's dependencies and in the Go standard library are scanned with [`govulncheck`](https://go.dev/doc/security/vuln/) four times a day, on both `main` and the latest release. The same scan runs on every pull request and every push to `main`, and fails if a vulnerability affects the code.
 
-A vulnerability affects Umono when its code calls the vulnerable function. Such a vulnerability is fixed within **24 hours** after a fixed version of the dependency is released. If no fixed version exists yet, the 24 hours start when it is released.
+A vulnerability affects Umono when its code calls the vulnerable function. A release that fixes it is published within **24 hours** after a fixed version of the dependency or of Go is released.
 
 ## Reporting a Vulnerability
 
