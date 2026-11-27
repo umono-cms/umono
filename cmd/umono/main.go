@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	umonocrypto "github.com/umono-cms/crypto"
@@ -13,6 +15,7 @@ import (
 	"github.com/umono-cms/umono/internal/theme"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -55,7 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := gorm.Open(sqlite.Open("umono.db"), &gorm.Config{})
+	db, err := openDB("umono.db", os.Stdout)
 	if err != nil {
 		log.Fatal("db err", err)
 	}
@@ -71,6 +74,21 @@ func main() {
 	}
 
 	log.Fatal(app.Listen(port))
+}
+
+// openDB opens the SQLite database at path. GORM writes slow queries and
+// database errors to w, but not the expected "record not found" results of
+// First, Take and Last, which a new project returns at startup and while the
+// job queue is empty.
+func openDB(path string, w io.Writer) (*gorm.DB, error) {
+	return gorm.Open(sqlite.Open(path), &gorm.Config{
+		Logger: logger.New(log.New(w, "\r\n", log.LstdFlags), logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true,
+		}),
+	})
 }
 
 // devRootFromEnv returns the theme project of the dev mode from
